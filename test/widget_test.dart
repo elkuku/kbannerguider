@@ -4,8 +4,8 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
-import 'package:kbannerguider/main.dart';
 import 'package:kbannerguider/models/banner_item.dart';
+import 'package:kbannerguider/screens/banner_list_page.dart';
 import 'package:kbannerguider/services/banner_service.dart';
 import 'package:kbannerguider/services/location_service.dart';
 
