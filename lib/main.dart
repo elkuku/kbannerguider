@@ -1,8 +1,9 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:http/http.dart' as http;
+
+import 'models/banner_item.dart';
+import 'services/banner_service.dart';
+import 'services/location_service.dart';
 
 void main() {
   runApp(const KBannerGuiderApp());
@@ -19,20 +20,28 @@ class KBannerGuiderApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepOrange),
         useMaterial3: true,
       ),
-      home: const BannerListPage(),
+      home: BannerListPage(),
     );
   }
 }
 
 class BannerListPage extends StatefulWidget {
-  const BannerListPage({super.key});
+  BannerListPage({
+    super.key,
+    LocationService? locationService,
+    BannerService? bannerService,
+  })  : _locationService = locationService ?? const LocationService(),
+        _bannerService = bannerService ?? BannerService();
+
+  final LocationService _locationService;
+  final BannerService _bannerService;
 
   @override
   State<BannerListPage> createState() => _BannerListPageState();
 }
 
 class _BannerListPageState extends State<BannerListPage> {
-  List<Map<String, dynamic>> _banners = [];
+  List<BannerItem> _banners = [];
   bool _loading = false;
   String? _error;
   Position? _position;
@@ -50,28 +59,16 @@ class _BannerListPageState extends State<BannerListPage> {
     });
 
     try {
-      final position = await _determinePosition();
+      final position = await widget._locationService.getCurrentPosition();
       setState(() => _position = position);
 
-      final uri = Uri.parse(
-        'https://api.bannergress.com/bnrs'
-        '?orderBy=proximityStartPoint'
-        '&orderDirection=ASC'
-        '&online=true'
-        '&proximityLatitude=${position.latitude}'
-        '&proximityLongitude=${position.longitude}',
+      final banners = await widget._bannerService.fetchNearby(
+        latitude: position.latitude,
+        longitude: position.longitude,
       );
 
-      final response = await http.get(uri);
-
-      if (response.statusCode != 200) {
-        throw Exception('Server returned ${response.statusCode}');
-      }
-
-      final List<dynamic> data = jsonDecode(response.body) as List<dynamic>;
-
       setState(() {
-        _banners = data.cast<Map<String, dynamic>>();
+        _banners = banners;
         _loading = false;
       });
     } catch (e) {
@@ -80,28 +77,6 @@ class _BannerListPageState extends State<BannerListPage> {
         _loading = false;
       });
     }
-  }
-
-  Future<Position> _determinePosition() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      throw Exception('Location services are disabled.');
-    }
-
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        throw Exception('Location permission denied.');
-      }
-    }
-    if (permission == LocationPermission.deniedForever) {
-      throw Exception(
-        'Location permission permanently denied. Enable it in settings.',
-      );
-    }
-
-    return Geolocator.getCurrentPosition();
   }
 
   @override
@@ -170,28 +145,27 @@ class _BannerListPageState extends State<BannerListPage> {
         Expanded(
           child: ListView.separated(
             itemCount: _banners.length,
-            separatorBuilder: (context, index) => const Divider(height: 1),
+            separatorBuilder: (_, _) => const Divider(height: 1),
             itemBuilder: (context, index) {
               final banner = _banners[index];
-              final title = banner['title'] as String? ?? 'Untitled';
-              final missions = banner['numberOfMissions'] as int?;
-              final id = banner['id'] as String? ?? '';
-
               return ListTile(
                 leading: ClipRRect(
                   borderRadius: BorderRadius.circular(4),
                   child: Image.network(
-                    'https://api.bannergress.com/bnrs/$id/picture',
+                    banner.pictureUrl,
                     width: 48,
                     height: 48,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) =>
+                    errorBuilder: (_, _, _) =>
                         const Icon(Icons.map, size: 48),
                   ),
                 ),
-                title: Text(title),
-                subtitle: missions != null
-                    ? Text('$missions mission${missions == 1 ? '' : 's'}')
+                title: Text(banner.title),
+                subtitle: banner.numberOfMissions != null
+                    ? Text(
+                        '${banner.numberOfMissions} mission'
+                        '${banner.numberOfMissions == 1 ? '' : 's'}',
+                      )
                     : null,
                 trailing: const Icon(Icons.chevron_right),
               );
