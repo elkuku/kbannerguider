@@ -2,16 +2,21 @@ import 'package:flutter/material.dart';
 
 import '../models/banner_item.dart';
 import '../services/banner_service.dart';
+import '../services/drive_service.dart';
 
 class BannerDetailPage extends StatefulWidget {
   const BannerDetailPage({
     super.key,
     required this.banner,
     required this.bannerService,
+    this.driveService,
+    this.listTypes = const {},
   });
 
   final BannerItem banner;
   final BannerService bannerService;
+  final DriveService? driveService;
+  final Map<String, String> listTypes;
 
   @override
   State<BannerDetailPage> createState() => _BannerDetailPageState();
@@ -20,11 +25,13 @@ class BannerDetailPage extends StatefulWidget {
 class _BannerDetailPageState extends State<BannerDetailPage> {
   late BannerItem _banner;
   bool _loadingDetail = false;
+  late Map<String, String> _listTypes;
 
   @override
   void initState() {
     super.initState();
     _banner = widget.banner;
+    _listTypes = Map.of(widget.listTypes);
     _loadDetail();
   }
 
@@ -46,6 +53,9 @@ class _BannerDetailPageState extends State<BannerDetailPage> {
       appBar: AppBar(
         title: Text(_banner.title),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        leading: BackButton(
+          onPressed: () => Navigator.pop(context, _listTypes),
+        ),
         actions: [
           if (_loadingDetail)
             const Padding(
@@ -105,6 +115,15 @@ class _BannerDetailPageState extends State<BannerDetailPage> {
                     Text(
                       _banner.description!,
                       style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ],
+                  if (widget.driveService != null) ...[
+                    const SizedBox(height: 16),
+                    const Divider(),
+                    const SizedBox(height: 4),
+                    _ListTypeSelector(
+                      current: _listTypes[_banner.id] ?? 'none',
+                      onChanged: _setListType,
                     ),
                   ],
                   const SizedBox(height: 16),
@@ -167,6 +186,17 @@ class _BannerDetailPageState extends State<BannerDetailPage> {
     );
   }
 
+  Future<void> _setListType(String type) async {
+    final updated = Map<String, String>.of(_listTypes);
+    if (type == 'none') {
+      updated.remove(_banner.id);
+    } else {
+      updated[_banner.id] = type;
+    }
+    setState(() => _listTypes = updated);
+    await widget.driveService?.saveListTypes(updated);
+  }
+
   String _missionsLabel(BannerItem b) {
     final total = b.numberOfMissions!;
     final disabled = b.numberOfDisabledMissions ?? 0;
@@ -180,6 +210,63 @@ class _BannerDetailPageState extends State<BannerDetailPage> {
       return '${(meters / 1000).toStringAsFixed(1)} km';
     }
     return '$meters m';
+  }
+}
+
+class _ListTypeSelector extends StatelessWidget {
+  const _ListTypeSelector({required this.current, required this.onChanged});
+
+  final String current;
+  final ValueChanged<String> onChanged;
+
+  static const _options = [
+    ('none', Icons.label_off_outlined, 'None', Colors.grey),
+    ('todo', Icons.bookmark_outline, 'To-do', Colors.blue),
+    ('done', Icons.check_circle_outline, 'Done', Colors.green),
+    ('blacklist', Icons.block, 'Skip', Colors.red),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: _options.map((opt) {
+        final (value, icon, label, color) = opt;
+        final selected = current == value;
+        return Expanded(
+          child: GestureDetector(
+            onTap: () => onChanged(value),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 6),
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              decoration: BoxDecoration(
+                color: selected ? color.withValues(alpha: 0.15) : Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: selected ? color : Colors.grey.shade300,
+                  width: selected ? 1.5 : 1,
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 20, color: selected ? color : Colors.grey),
+                  const SizedBox(height: 2),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: selected ? color : Colors.grey,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
   }
 }
 
