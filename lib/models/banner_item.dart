@@ -1,3 +1,5 @@
+import 'mission_item.dart';
+
 class BannerItem {
   final String id;
   final String? uuid;
@@ -17,6 +19,8 @@ class BannerItem {
   final String? plannedOfflineDate;
   final String? eventStartDate;
   final String? eventEndDate;
+  // Ordered by position key; only populated from GET /bnrs/{id}
+  final List<MissionItem> missions;
 
   const BannerItem({
     required this.id,
@@ -37,6 +41,7 @@ class BannerItem {
     this.plannedOfflineDate,
     this.eventStartDate,
     this.eventEndDate,
+    this.missions = const [],
   });
 
   factory BannerItem.fromJson(Map<String, dynamic> json) => BannerItem(
@@ -60,7 +65,21 @@ class BannerItem {
         plannedOfflineDate: json['plannedOfflineDate'] as String?,
         eventStartDate: json['eventStartDate'] as String?,
         eventEndDate: json['eventEndDate'] as String?,
+        missions: _parseMissions(json['missions']),
       );
+
+  static List<MissionItem> _parseMissions(dynamic raw) {
+    if (raw is! Map<String, dynamic>) return [];
+    final entries = raw.entries.toList()
+      ..sort((a, b) {
+        final ia = int.tryParse(a.key) ?? 0;
+        final ib = int.tryParse(b.key) ?? 0;
+        return ia.compareTo(ib);
+      });
+    return entries
+        .map((e) => MissionItem.fromJson(e.value as Map<String, dynamic>))
+        .toList();
+  }
 
   // Mirrors OpenBanners toAbsoluteImageUrl: handles relative and absolute picture values.
   String get pictureUrl {

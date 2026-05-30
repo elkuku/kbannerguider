@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/banner_item.dart';
+import '../models/mission_item.dart';
 import '../services/banner_service.dart';
 import '../services/drive_service.dart';
 
@@ -177,9 +179,21 @@ class _BannerDetailPageState extends State<BannerDetailPage> {
                       label: 'Planned offline',
                       value: _banner.plannedOfflineDate!,
                     ),
+                  if (_banner.missions.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    const Divider(),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Missions (${_banner.missions.length})',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 4),
+                  ],
                 ],
               ),
             ),
+          if (_banner.missions.isNotEmpty)
+            _MissionList(missions: _banner.missions),
           ],
         ),
       ),
@@ -269,6 +283,179 @@ class _ListTypeSelector extends StatelessWidget {
     );
   }
 }
+
+Future<void> _launch(String url) async {
+  await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+}
+
+// ─── Mission list ─────────────────────────────────────────────────────────────
+
+class _MissionList extends StatelessWidget {
+  const _MissionList({required this.missions});
+
+  final List<MissionItem> missions;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: missions.length,
+      itemBuilder: (_, i) => _MissionTile(index: i, mission: missions[i]),
+    );
+  }
+}
+
+class _MissionTile extends StatelessWidget {
+  const _MissionTile({required this.index, required this.mission});
+
+  final int index;
+  final MissionItem mission;
+
+  @override
+  Widget build(BuildContext context) {
+    final stepCount = mission.steps.length;
+    return ExpansionTile(
+      leading: ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: Image.network(
+          mission.pictureUrl,
+          width: 40,
+          height: 40,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) =>
+              Container(width: 40, height: 40, color: Colors.grey.shade200,
+                  child: const Icon(Icons.map, size: 20, color: Colors.grey)),
+        ),
+      ),
+      title: Row(
+        children: [
+          Expanded(
+            child: Text(
+              '${index + 1}. ${mission.title}',
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.open_in_new, size: 18),
+            tooltip: 'Open in Ingress',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            onPressed: () => _launch(mission.ingressUrl),
+          ),
+        ],
+      ),
+      subtitle: Text(
+        [
+          if (mission.type != null)
+            mission.type == 'sequential' ? 'Sequential' : 'Any order',
+          if (stepCount > 0) '$stepCount waypoint${stepCount == 1 ? '' : 's'}',
+          if (mission.lengthMeters != null)
+            mission.lengthMeters! >= 1000
+                ? '${(mission.lengthMeters! / 1000).toStringAsFixed(1)} km'
+                : '${mission.lengthMeters} m',
+        ].join(' · '),
+        style: const TextStyle(fontSize: 12),
+      ),
+      children: [
+        if (mission.steps.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text('No waypoint data available.',
+                style: TextStyle(fontSize: 12, color: Colors.grey)),
+          )
+        else
+          ...mission.steps.asMap().entries.map(
+                (e) => _StepTile(index: e.key, step: e.value),
+              ),
+      ],
+    );
+  }
+}
+
+class _StepTile extends StatelessWidget {
+  const _StepTile({required this.index, required this.step});
+
+  final int index;
+  final MissionStepItem step;
+
+  static (IconData, Color) _objectiveStyle(String objective) =>
+      switch (objective) {
+        'hack' => (Icons.sensors, Colors.deepOrange),
+        'captureOrUpgrade' => (Icons.flag_outlined, Colors.blue),
+        'createLink' => (Icons.link, Colors.indigo),
+        'createField' => (Icons.change_history, Colors.purple),
+        'installMod' => (Icons.build_outlined, Colors.teal),
+        'takePhoto' => (Icons.camera_alt_outlined, Colors.pink),
+        'viewWaypoint' => (Icons.visibility_outlined, Colors.green),
+        'enterPassphrase' => (Icons.key_outlined, Colors.amber),
+        _ => (Icons.place_outlined, Colors.grey),
+      };
+
+  static String _objectiveLabel(String objective) =>
+      switch (objective) {
+        'hack' => 'Hack',
+        'captureOrUpgrade' => 'Capture/Upgrade',
+        'createLink' => 'Create Link',
+        'createField' => 'Create Field',
+        'installMod' => 'Install Mod',
+        'takePhoto' => 'Take Photo',
+        'viewWaypoint' => 'View Waypoint',
+        'enterPassphrase' => 'Enter Passphrase',
+        _ => objective,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final poi = step.poi;
+    final (icon, color) = _objectiveStyle(step.objective);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 24,
+            child: Text(
+              '${index + 1}.',
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+              textAlign: TextAlign.right,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  poi?.title ?? '(hidden waypoint)',
+                  style: const TextStyle(fontSize: 13),
+                ),
+                Text(
+                  _objectiveLabel(step.objective),
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                ),
+              ],
+            ),
+          ),
+          if (poi?.geoUrl != null)
+            IconButton(
+              icon: const Icon(Icons.share_location_outlined, size: 18),
+              tooltip: 'Share location',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              onPressed: () => _launch(poi!.geoUrl!),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _InfoRow extends StatelessWidget {
   const _InfoRow({
