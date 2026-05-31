@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -304,6 +305,9 @@ class _BannerMap extends StatefulWidget {
 
 class _BannerMapState extends State<_BannerMap> {
   final _mapController = MapController();
+  bool _showLocation = false;
+  bool _loadingLocation = false;
+  LatLng? _currentLocation;
 
   static List<LatLng> _missionPoints(MissionItem m) => m.steps
       .map((s) => s.poi)
@@ -321,6 +325,38 @@ class _BannerMapState extends State<_BannerMap> {
         padding: const EdgeInsets.all(60),
       ),
     );
+  }
+
+  Future<void> _toggleLocation() async {
+    if (_showLocation) {
+      setState(() => _showLocation = false);
+      return;
+    }
+
+    setState(() { _showLocation = true; _loadingLocation = true; });
+
+    try {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        if (mounted) setState(() { _showLocation = false; _loadingLocation = false; });
+        return;
+      }
+      final pos = await Geolocator.getCurrentPosition();
+      if (mounted) {
+        final loc = LatLng(pos.latitude, pos.longitude);
+        setState(() {
+          _currentLocation = loc;
+          _loadingLocation = false;
+        });
+        _mapController.move(loc, _mapController.camera.zoom);
+      }
+    } catch (_) {
+      if (mounted) setState(() { _showLocation = false; _loadingLocation = false; });
+    }
   }
 
   @override
@@ -436,19 +472,84 @@ class _BannerMapState extends State<_BannerMap> {
       ));
     }
 
-    return FlutterMap(
-      mapController: _mapController,
-      options: MapOptions(initialCameraFit: cameraFit),
-      children: [
-        TileLayer(
-          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-          userAgentPackageName: 'com.elkuku.kbannerguider',
+    final locationMarkers = <Marker>[];
+    if (_showLocation && _currentLocation != null) {
+      locationMarkers.add(Marker(
+        point: _currentLocation!,
+        width: 22,
+        height: 22,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.blue,
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 3),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.blue.withValues(alpha: 0.4),
+                blurRadius: 8,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
         ),
-        if (polylines.isNotEmpty) PolylineLayer(polylines: polylines),
-        if (waypointMarkers.isNotEmpty) MarkerLayer(markers: waypointMarkers),
-        if (startMarkers.isNotEmpty) MarkerLayer(markers: startMarkers),
-        if (flagMarkers.isNotEmpty) MarkerLayer(markers: flagMarkers),
-        _MapLegend(missions: widget.missions, onFocus: _focusOnMission),
+      ));
+    }
+
+    final theme = Theme.of(context);
+    return Stack(
+      children: [
+        FlutterMap(
+          mapController: _mapController,
+          options: MapOptions(initialCameraFit: cameraFit),
+          children: [
+            TileLayer(
+              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              userAgentPackageName: 'com.elkuku.kbannerguider',
+            ),
+            if (polylines.isNotEmpty) PolylineLayer(polylines: polylines),
+            if (waypointMarkers.isNotEmpty)
+              MarkerLayer(markers: waypointMarkers),
+            if (startMarkers.isNotEmpty) MarkerLayer(markers: startMarkers),
+            if (flagMarkers.isNotEmpty) MarkerLayer(markers: flagMarkers),
+            if (locationMarkers.isNotEmpty)
+              MarkerLayer(markers: locationMarkers),
+            _MapLegend(missions: widget.missions, onFocus: _focusOnMission),
+          ],
+        ),
+        Positioned(
+          top: 12,
+          right: 12,
+          child: Material(
+            color: _showLocation
+                ? theme.colorScheme.primary
+                : Colors.white,
+            shape: const CircleBorder(),
+            elevation: 3,
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: _toggleLocation,
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: _loadingLocation
+                    ? SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: theme.colorScheme.primary,
+                        ),
+                      )
+                    : Icon(
+                        Icons.my_location,
+                        size: 22,
+                        color: _showLocation
+                            ? Colors.white
+                            : Colors.black54,
+                      ),
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }
