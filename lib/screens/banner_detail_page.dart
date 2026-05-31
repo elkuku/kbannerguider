@@ -8,6 +8,7 @@ import '../models/banner_item.dart';
 import '../models/mission_item.dart';
 import '../services/banner_service.dart';
 import '../services/drive_service.dart';
+import '../widgets/full_image_dialog.dart';
 
 // Distinct colors assigned per mission index
 const _missionColors = [
@@ -148,14 +149,17 @@ class _BannerDetailPageState extends State<BannerDetailPage>
         children: [
           Hero(
             tag: 'banner-${_banner.id}',
-            child: Image.network(
-              _banner.pictureUrl,
-              height: 200,
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => Container(
+            child: GestureDetector(
+              onTap: () => showFullImage(context, _banner.pictureUrl),
+              child: Image.network(
+                _banner.pictureUrl,
                 height: 200,
-                color: Colors.grey.shade200,
-                child: const Icon(Icons.map, size: 64, color: Colors.grey),
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => Container(
+                  height: 200,
+                  color: Colors.grey.shade200,
+                  child: const Icon(Icons.map, size: 64, color: Colors.grey),
+                ),
               ),
             ),
           ),
