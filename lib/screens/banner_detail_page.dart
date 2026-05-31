@@ -254,20 +254,26 @@ class _BannerDetailPageState extends State<BannerDetailPage>
                     label: 'Planned offline',
                     value: _banner.plannedOfflineDate!,
                   ),
-                if (_banner.missions.isNotEmpty) ...[
+                if (_banner.missions.isNotEmpty || _loadingDetail) ...[
                   const SizedBox(height: 16),
                   const Divider(),
                   const SizedBox(height: 4),
-                  Text(
-                    'Missions (${_banner.missions.length})',
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
+                  if (_banner.missions.isNotEmpty)
+                    Text(
+                      'Missions (${_banner.missions.length})',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
                   const SizedBox(height: 4),
                 ],
               ],
             ),
           ),
-          if (_banner.missions.isNotEmpty)
+          if (_loadingDetail && _banner.missions.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 32),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_banner.missions.isNotEmpty)
             _MissionList(missions: _banner.missions),
         ],
       ),

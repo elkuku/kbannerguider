@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -7,6 +9,7 @@ import '../config.dart';
 import '../models/banner_item.dart';
 import '../services/auth_service.dart';
 import '../services/banner_service.dart';
+import '../services/cache_service.dart';
 import '../services/drive_service.dart';
 import '../services/location_service.dart';
 import 'banner_detail_page.dart';
@@ -45,6 +48,7 @@ class _BannerListPageState extends State<BannerListPage>
   // ── To-do tab state ───────────────────────────────────────────────────
   List<BannerItem> _todoBanners = [];
   bool _loadingTodo = false;
+  final _cache = CacheService();
 
   // ── Shared state ──────────────────────────────────────────────────────
   Position? _position;           // actual GPS — used for distances
@@ -122,6 +126,7 @@ class _BannerListPageState extends State<BannerListPage>
           setState(() { _user = user; _authError = null; });
           _loadDriveData();
         case GoogleSignInAuthenticationEventSignOut():
+          _cache.clearAll();
           setState(() {
             _user = null;
             _listTypes = {};
@@ -136,10 +141,19 @@ class _BannerListPageState extends State<BannerListPage>
   Future<void> _loadDriveData() async {
     final drive = widget._driveService;
     if (drive == null) return;
+
+    // Show cached list types immediately
+    final cached = await _cache.loadListTypes();
+    if (cached != null && mounted) {
+      setState(() => _listTypes = cached);
+      if (_tabController.index == 1) _fetchTodoBanners();
+    }
+
+    // Fetch fresh from Drive in background
     final types = await drive.loadListTypes();
     if (!mounted) return;
+    unawaited(_cache.saveListTypes(types));
     setState(() => _listTypes = types);
-    // Refresh todo list if it's been loaded before
     if (_todoBanners.isNotEmpty || _tabController.index == 1) {
       _fetchTodoBanners();
     }
@@ -195,11 +209,18 @@ class _BannerListPageState extends State<BannerListPage>
         .toList();
 
     if (todoIds.isEmpty) {
+      await _cache.saveTodoBanners([]);
       setState(() { _todoBanners = []; _loadingTodo = false; });
       return;
     }
 
-    setState(() { _loadingTodo = true; _todoBanners = []; });
+    // Show cached banners immediately while fetching fresh data
+    final cachedBanners = await _cache.loadTodoBanners();
+    if (cachedBanners != null && mounted) {
+      setState(() => _todoBanners = cachedBanners);
+    }
+
+    setState(() => _loadingTodo = true);
 
     final fetched = <BannerItem>[];
     for (final id in todoIds) {
@@ -222,6 +243,7 @@ class _BannerListPageState extends State<BannerListPage>
       });
     }
 
+    unawaited(_cache.saveTodoBanners(fetched));
     if (mounted) setState(() { _todoBanners = fetched; _loadingTodo = false; });
   }
 

@@ -22,7 +22,7 @@ class KBannerGuiderApp extends StatelessWidget {
       title: 'KBannerGuider',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color.fromARGB(255, 17, 174, 27),
+          seedColor: const Color.fromARGB(255, 100, 100, 100),
         ),
         useMaterial3: true,
       ),
