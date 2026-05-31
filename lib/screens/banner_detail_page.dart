@@ -118,21 +118,21 @@ class _BannerDetailPageState extends State<BannerDetailPage>
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
-            Tab(icon: Icon(Icons.map_outlined), text: 'Map'),
             Tab(icon: Icon(Icons.list_outlined), text: 'Missions'),
+            Tab(icon: Icon(Icons.map_outlined), text: 'Map'),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
+          _buildInfoTab(),
           _BannerMap(
             missions: _banner.missions,
             loading: _loadingDetail,
             bannerStartLat: _banner.startLatitude,
             bannerStartLng: _banner.startLongitude,
           ),
-          _buildInfoTab(),
         ],
       ),
     );
