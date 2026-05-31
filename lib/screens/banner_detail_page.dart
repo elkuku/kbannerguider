@@ -133,6 +133,8 @@ class _BannerDetailPageState extends State<BannerDetailPage>
             loading: _loadingDetail,
             bannerStartLat: _banner.startLatitude,
             bannerStartLng: _banner.startLongitude,
+            bannerTitle: _banner.title,
+            bannerAddress: _banner.formattedAddress,
           ),
         ],
       ),
@@ -292,12 +294,16 @@ class _BannerMap extends StatefulWidget {
     required this.loading,
     this.bannerStartLat,
     this.bannerStartLng,
+    this.bannerTitle,
+    this.bannerAddress,
   });
 
   final List<MissionItem> missions;
   final bool loading;
   final double? bannerStartLat;
   final double? bannerStartLng;
+  final String? bannerTitle;
+  final String? bannerAddress;
 
   @override
   State<_BannerMap> createState() => _BannerMapState();
@@ -454,20 +460,35 @@ class _BannerMapState extends State<_BannerMap> {
 
     final flagMarkers = <Marker>[];
     if (widget.bannerStartLat != null && widget.bannerStartLng != null) {
+      final startPoint = LatLng(widget.bannerStartLat!, widget.bannerStartLng!);
+      final geoUrl = 'geo:${widget.bannerStartLat},${widget.bannerStartLng}'
+          '?q=${widget.bannerStartLat},${widget.bannerStartLng}'
+          '(${Uri.encodeComponent(widget.bannerTitle ?? 'Banner start')})';
+
       flagMarkers.add(Marker(
-        point: LatLng(widget.bannerStartLat!, widget.bannerStartLng!),
+        point: startPoint,
         width: 36,
         height: 36,
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.red, width: 2),
-            boxShadow: const [
-              BoxShadow(color: Colors.black38, blurRadius: 4),
-            ],
+        child: GestureDetector(
+          onTap: () => _showStartSheet(
+            context,
+            title: widget.bannerTitle,
+            address: widget.bannerAddress,
+            lat: widget.bannerStartLat!,
+            lng: widget.bannerStartLng!,
+            geoUrl: geoUrl,
           ),
-          child: const Icon(Icons.flag, color: Colors.red, size: 20),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.red, width: 2),
+              boxShadow: const [
+                BoxShadow(color: Colors.black38, blurRadius: 4),
+              ],
+            ),
+            child: const Icon(Icons.flag, color: Colors.red, size: 20),
+          ),
         ),
       ));
     }
@@ -553,6 +574,68 @@ class _BannerMapState extends State<_BannerMap> {
       ],
     );
   }
+}
+
+void _showStartSheet(
+  BuildContext context, {
+  required String? title,
+  required String? address,
+  required double lat,
+  required double lng,
+  required String geoUrl,
+}) {
+  showModalBottomSheet<void>(
+    context: context,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+    ),
+    builder: (ctx) => Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.flag, color: Colors.red, size: 16),
+              const SizedBox(width: 8),
+              Text(
+                'Banner start',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          if (title != null)
+            Text(
+              title,
+              style: const TextStyle(
+                  fontSize: 18, fontWeight: FontWeight.w600),
+            ),
+          const SizedBox(height: 4),
+          Text(
+            address ?? '${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}',
+            style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey.shade500,
+                fontFamily: address == null ? 'monospace' : null),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.share_location_outlined),
+              label: const Text('Open location'),
+              onPressed: () {
+                Navigator.pop(ctx);
+                _launch(geoUrl);
+              },
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 void _showWaypointSheet(
@@ -680,32 +763,40 @@ class _MapLegendState extends State<_MapLegend> {
             ),
             if (_expanded) ...[
               const Divider(height: 1),
-              ...widget.missions.asMap().entries.map((e) {
-                final color = _missionColor(e.key);
-                return InkWell(
-                  onTap: () => widget.onFocus(e.key),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 5),
-                    child: Row(
-                      children: [
-                        Container(width: 16, height: 3, color: color),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            '${e.key + 1}. ${e.value.title}',
-                            style: const TextStyle(fontSize: 11),
-                            overflow: TextOverflow.ellipsis,
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 200),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: widget.missions.asMap().entries.map((e) {
+                      final color = _missionColor(e.key);
+                      return InkWell(
+                        onTap: () => widget.onFocus(e.key),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 5),
+                          child: Row(
+                            children: [
+                              Container(width: 16, height: 3, color: color),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  '${e.key + 1}. ${e.value.title}',
+                                  style: const TextStyle(fontSize: 11),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Icon(Icons.center_focus_weak,
+                                  size: 13, color: Colors.black38),
+                            ],
                           ),
                         ),
-                        const SizedBox(width: 4),
-                        Icon(Icons.center_focus_weak,
-                            size: 13, color: Colors.black38),
-                      ],
-                    ),
+                      );
+                    }).toList(),
                   ),
-                );
-              }),
+                ),
+              ),
             ],
           ],
         ),
