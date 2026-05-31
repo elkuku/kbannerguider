@@ -39,7 +39,7 @@ class _BannerListPageState extends State<BannerListPage>
   List<BannerItem> _banners = [];
   bool _loading = false;
   String? _error;
-  String? _activeFilter;
+  Set<String> _hiddenFilters = {};
 
   // ── To-do tab state ───────────────────────────────────────────────────
   List<BannerItem> _todoBanners = [];
@@ -58,13 +58,12 @@ class _BannerListPageState extends State<BannerListPage>
   bool get _isSignedIn => _user != null;
 
   List<BannerItem> get _filteredBanners {
-    if (_activeFilter == null) return _banners;
-    if (_activeFilter == 'unsorted') {
-      return _banners.where((b) => !_listTypes.containsKey(b.id)).toList();
-    }
-    return _banners
-        .where((b) => _listTypes[b.id] == _activeFilter)
-        .toList();
+    if (_hiddenFilters.isEmpty) return _banners;
+    return _banners.where((b) {
+      final type = _listTypes[b.id];
+      final key = (type == null || type == 'none') ? 'unsorted' : type;
+      return !_hiddenFilters.contains(key);
+    }).toList();
   }
 
   double? _distanceMeters(BannerItem banner) {
@@ -125,7 +124,7 @@ class _BannerListPageState extends State<BannerListPage>
           setState(() {
             _user = null;
             _listTypes = {};
-            _activeFilter = null;
+            _hiddenFilters = {};
             _todoBanners = [];
           });
       }
@@ -362,10 +361,10 @@ class _BannerListPageState extends State<BannerListPage>
           ),
         if (_isSignedIn && _banners.isNotEmpty)
           _FilterBar(
-            activeFilter: _activeFilter,
+            hiddenFilters: _hiddenFilters,
             listTypes: _listTypes,
             banners: _banners,
-            onFilterChanged: (f) => setState(() => _activeFilter = f),
+            onChanged: (h) => setState(() => _hiddenFilters = h),
           ),
         if (_isSignedIn && widget._driveService != null)
           _DriveDebugCard(driveService: widget._driveService!),
@@ -683,60 +682,83 @@ class _Row extends StatelessWidget {
 
 class _FilterBar extends StatelessWidget {
   const _FilterBar({
-    required this.activeFilter,
+    required this.hiddenFilters,
     required this.listTypes,
     required this.banners,
-    required this.onFilterChanged,
+    required this.onChanged,
   });
 
-  final String? activeFilter;
+  final Set<String> hiddenFilters;
   final Map<String, String> listTypes;
   final List<BannerItem> banners;
-  final ValueChanged<String?> onFilterChanged;
+  final ValueChanged<Set<String>> onChanged;
 
-  int _count(String? filter) {
-    if (filter == null) return banners.length;
-    if (filter == 'unsorted') {
-      return banners.where((b) => !listTypes.containsKey(b.id)).length;
+  int _count(String key) {
+    if (key == 'unsorted') {
+      return banners.where((b) {
+        final t = listTypes[b.id];
+        return t == null || t == 'none';
+      }).length;
     }
-    return banners.where((b) => listTypes[b.id] == filter).length;
+    return banners.where((b) => listTypes[b.id] == key).length;
   }
 
   @override
   Widget build(BuildContext context) {
-    const chips = [
-      (null, 'All', Icons.list_outlined, Colors.grey),
+    const options = [
       ('todo', 'To-do', Icons.bookmark_outline, Colors.blue),
       ('done', 'Done', Icons.check_circle_outline, Colors.green),
       ('blacklist', 'Skip', Icons.block, Colors.red),
       ('unsorted', 'Unsorted', Icons.label_off_outlined, Colors.grey),
     ];
+
     return Container(
       color: Theme.of(context).colorScheme.surfaceContainerLow,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         child: Row(
-          children: chips.map<Widget>((chip) {
-            final (value, label, icon, baseColor) = chip;
-            final color = baseColor as Color;
-            final selected = activeFilter == value;
-            return Padding(
-              padding: const EdgeInsets.only(right: 6),
-              child: FilterChip(
-                selected: selected,
-                avatar: Icon(icon, size: 15,
-                    color: selected ? color : Colors.grey),
-                label: Text('$label  ${_count(value)}',
-                    style: const TextStyle(fontSize: 12)),
-                onSelected: (_) =>
-                    onFilterChanged(selected ? null : value),
-                selectedColor: color.withValues(alpha: 0.15),
-                checkmarkColor: color,
-                showCheckmark: false,
+          children: [
+            // Reset button — only visible when something is hidden
+            if (hiddenFilters.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: ActionChip(
+                  avatar: const Icon(Icons.visibility_outlined, size: 15),
+                  label: const Text('Show all',
+                      style: TextStyle(fontSize: 12)),
+                  onPressed: () => onChanged({}),
+                ),
               ),
-            );
-          }).toList(),
+            ...options.map((opt) {
+              final (key, label, icon, baseColor) = opt;
+              final color = baseColor as Color;
+              final visible = !hiddenFilters.contains(key);
+              final count = _count(key);
+              return Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: FilterChip(
+                  selected: visible,
+                  avatar: Icon(icon, size: 15,
+                      color: visible ? color : Colors.grey),
+                  label: Text('$label  $count',
+                      style: const TextStyle(fontSize: 12)),
+                  onSelected: (_) {
+                    final updated = Set<String>.of(hiddenFilters);
+                    if (visible) {
+                      updated.add(key);
+                    } else {
+                      updated.remove(key);
+                    }
+                    onChanged(updated);
+                  },
+                  selectedColor: color.withValues(alpha: 0.15),
+                  checkmarkColor: color,
+                  showCheckmark: false,
+                ),
+              );
+            }),
+          ],
         ),
       ),
     );
