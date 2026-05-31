@@ -14,6 +14,8 @@ import '../services/drive_service.dart';
 import '../services/location_service.dart';
 import 'banner_detail_page.dart';
 import 'location_picker_page.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+
 import '../widgets/full_image_dialog.dart';
 
 class BannerListPage extends StatefulWidget {
@@ -536,12 +538,12 @@ class _BannerListPageState extends State<BannerListPage>
           onTap: () => showFullImage(context, banner.pictureUrl),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(4),
-            child: Image.network(
-              banner.pictureUrl,
+            child: CachedNetworkImage(
+              imageUrl: banner.pictureUrl,
               width: 48,
               height: 48,
               fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => const Icon(Icons.map, size: 48),
+              errorWidget: (_, _, _) => const Icon(Icons.map, size: 48),
             ),
           ),
         ),

@@ -4,6 +4,8 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:cached_network_image/cached_network_image.dart';
+
 import '../models/banner_item.dart';
 import '../models/mission_item.dart';
 import '../services/banner_service.dart';
@@ -151,11 +153,12 @@ class _BannerDetailPageState extends State<BannerDetailPage>
             tag: 'banner-${_banner.id}',
             child: GestureDetector(
               onTap: () => showFullImage(context, _banner.pictureUrl),
-              child: Image.network(
-                _banner.pictureUrl,
+              child: CachedNetworkImage(
+                imageUrl: _banner.pictureUrl,
                 height: 200,
+                width: double.infinity,
                 fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Container(
+                errorWidget: (_, _, _) => Container(
                   height: 200,
                   color: Colors.grey.shade200,
                   child: const Icon(Icons.map, size: 64, color: Colors.grey),
@@ -919,12 +922,12 @@ class _MissionTile extends StatelessWidget {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
-            child: Image.network(
-              mission.pictureUrl,
+            child: CachedNetworkImage(
+              imageUrl: mission.pictureUrl,
               width: 40,
               height: 40,
               fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => Container(
+              errorWidget: (_, _, _) => Container(
                 width: 40,
                 height: 40,
                 color: Colors.grey.shade200,

@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 void showFullImage(BuildContext context, String imageUrl) {
@@ -14,15 +15,13 @@ void showFullImage(BuildContext context, String imageUrl) {
               minScale: 0.5,
               maxScale: 5,
               child: Center(
-                child: Image.network(
-                  imageUrl,
+                child: CachedNetworkImage(
+                  imageUrl: imageUrl,
                   fit: BoxFit.contain,
-                  loadingBuilder: (_, child, progress) => progress == null
-                      ? child
-                      : const Center(
-                          child: CircularProgressIndicator(
-                              color: Colors.white)),
-                  errorBuilder: (_, _, _) => const Icon(
+                  placeholder: (_, _) => const Center(
+                    child: CircularProgressIndicator(color: Colors.white),
+                  ),
+                  errorWidget: (_, _, _) => const Icon(
                     Icons.broken_image,
                     color: Colors.white54,
                     size: 64,
