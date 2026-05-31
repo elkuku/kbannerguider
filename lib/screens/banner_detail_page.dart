@@ -285,7 +285,7 @@ class _BannerDetailPageState extends State<BannerDetailPage>
 
 // ─── Map tab ─────────────────────────────────────────────────────────────────
 
-class _BannerMap extends StatelessWidget {
+class _BannerMap extends StatefulWidget {
   const _BannerMap({
     required this.missions,
     required this.loading,
@@ -298,25 +298,41 @@ class _BannerMap extends StatelessWidget {
   final double? bannerStartLat;
   final double? bannerStartLng;
 
-  List<LatLng> _missionPoints(MissionItem m) => m.steps
+  @override
+  State<_BannerMap> createState() => _BannerMapState();
+}
+
+class _BannerMapState extends State<_BannerMap> {
+  final _mapController = MapController();
+
+  static List<LatLng> _missionPoints(MissionItem m) => m.steps
       .map((s) => s.poi)
       .whereType<PoiItem>()
       .where((p) => p.latitude != null && p.longitude != null)
       .map((p) => LatLng(p.latitude!, p.longitude!))
       .toList();
 
+  void _focusOnMission(int index) {
+    final points = _missionPoints(widget.missions[index]);
+    if (points.isEmpty) return;
+    _mapController.fitCamera(
+      CameraFit.coordinates(
+        coordinates: points,
+        padding: const EdgeInsets.all(60),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (loading && missions.isEmpty) {
+    if (widget.loading && widget.missions.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    final allPoints = missions.expand(_missionPoints).toList();
+    final allPoints = widget.missions.expand(_missionPoints).toList();
 
     if (allPoints.isEmpty) {
-      return const Center(
-        child: Text('No waypoint coordinates available.'),
-      );
+      return const Center(child: Text('No waypoint coordinates available.'));
     }
 
     final cameraFit = CameraFit.coordinates(
@@ -325,13 +341,11 @@ class _BannerMap extends StatelessWidget {
     );
 
     final polylines = <Polyline>[];
-    // Regular waypoint markers added first (lowest z-order)
     final waypointMarkers = <Marker>[];
-    // Mission-start numbered markers added second
     final startMarkers = <Marker>[];
 
-    for (var i = 0; i < missions.length; i++) {
-      final mission = missions[i];
+    for (var i = 0; i < widget.missions.length; i++) {
+      final mission = widget.missions[i];
       final color = _missionColor(i);
       final points = _missionPoints(mission);
 
@@ -350,7 +364,6 @@ class _BannerMap extends StatelessWidget {
             mission: mission, poi: poi, color: color);
 
         if (firstWaypoint) {
-          // Numbered mission-start marker
           startMarkers.add(Marker(
             point: point,
             width: 36,
@@ -381,7 +394,6 @@ class _BannerMap extends StatelessWidget {
           ));
           firstWaypoint = false;
         } else {
-          // Regular waypoint dot
           waypointMarkers.add(Marker(
             point: point,
             width: 26,
@@ -404,11 +416,10 @@ class _BannerMap extends StatelessWidget {
       }
     }
 
-    // Banner start flag — rendered on top of everything
     final flagMarkers = <Marker>[];
-    if (bannerStartLat != null && bannerStartLng != null) {
+    if (widget.bannerStartLat != null && widget.bannerStartLng != null) {
       flagMarkers.add(Marker(
-        point: LatLng(bannerStartLat!, bannerStartLng!),
+        point: LatLng(widget.bannerStartLat!, widget.bannerStartLng!),
         width: 36,
         height: 36,
         child: Container(
@@ -426,6 +437,7 @@ class _BannerMap extends StatelessWidget {
     }
 
     return FlutterMap(
+      mapController: _mapController,
       options: MapOptions(initialCameraFit: cameraFit),
       children: [
         TileLayer(
@@ -436,7 +448,7 @@ class _BannerMap extends StatelessWidget {
         if (waypointMarkers.isNotEmpty) MarkerLayer(markers: waypointMarkers),
         if (startMarkers.isNotEmpty) MarkerLayer(markers: startMarkers),
         if (flagMarkers.isNotEmpty) MarkerLayer(markers: flagMarkers),
-        _MapLegend(missions: missions),
+        _MapLegend(missions: widget.missions, onFocus: _focusOnMission),
       ],
     );
   }
@@ -509,49 +521,92 @@ void _showWaypointSheet(
   );
 }
 
-class _MapLegend extends StatelessWidget {
-  const _MapLegend({required this.missions});
+class _MapLegend extends StatefulWidget {
+  const _MapLegend({required this.missions, required this.onFocus});
 
   final List<MissionItem> missions;
+  final void Function(int index) onFocus;
+
+  @override
+  State<_MapLegend> createState() => _MapLegendState();
+}
+
+class _MapLegendState extends State<_MapLegend> {
+  bool _expanded = true;
 
   @override
   Widget build(BuildContext context) {
-    if (missions.isEmpty) return const SizedBox.shrink();
+    if (widget.missions.isEmpty) return const SizedBox.shrink();
     return Align(
       alignment: Alignment.bottomLeft,
       child: Container(
         margin: const EdgeInsets.all(8),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        constraints: const BoxConstraints(maxWidth: 220),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.9),
+          color: Colors.white.withValues(alpha: 0.93),
           borderRadius: BorderRadius.circular(8),
           boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: missions.asMap().entries.map((e) {
-            final color = _missionColor(e.key);
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 16,
-                    height: 3,
-                    color: color,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    '${e.key + 1}. ${e.value.title}',
-                    style: const TextStyle(fontSize: 11),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+          children: [
+            // Header row with collapse toggle
+            InkWell(
+              onTap: () => setState(() => _expanded = !_expanded),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                child: Row(
+                  children: [
+                    const Text(
+                      'Missions',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black54,
+                      ),
+                    ),
+                    const Spacer(),
+                    Icon(
+                      _expanded ? Icons.expand_less : Icons.expand_more,
+                      size: 16,
+                      color: Colors.black45,
+                    ),
+                  ],
+                ),
               ),
-            );
-          }).toList(),
+            ),
+            if (_expanded) ...[
+              const Divider(height: 1),
+              ...widget.missions.asMap().entries.map((e) {
+                final color = _missionColor(e.key);
+                return InkWell(
+                  onTap: () => widget.onFocus(e.key),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 5),
+                    child: Row(
+                      children: [
+                        Container(width: 16, height: 3, color: color),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            '${e.key + 1}. ${e.value.title}',
+                            style: const TextStyle(fontSize: 11),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(Icons.center_focus_weak,
+                            size: 13, color: Colors.black38),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+            ],
+          ],
         ),
       ),
     );
