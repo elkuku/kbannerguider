@@ -21,9 +21,6 @@ class KBannerGuiderApp extends StatelessWidget {
     return MaterialApp(
       title: 'KBannerGuider',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color.fromARGB(255, 100, 100, 100),
-        ),
         useMaterial3: true,
       ),
       home: BannerListPage(
