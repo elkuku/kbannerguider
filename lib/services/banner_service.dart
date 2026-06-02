@@ -12,6 +12,7 @@ class BannerService {
   Future<List<BannerItem>> fetchNearby({
     required double latitude,
     required double longitude,
+    int limit = 100,
   }) async {
     final uri = Uri.parse(
       'https://api.bannergress.com/bnrs'
@@ -19,7 +20,8 @@ class BannerService {
       '&orderDirection=ASC'
       '&online=true'
       '&proximityLatitude=$latitude'
-      '&proximityLongitude=$longitude',
+      '&proximityLongitude=$longitude'
+      '&limit=$limit',
     );
 
     final response = await _client.get(uri);
