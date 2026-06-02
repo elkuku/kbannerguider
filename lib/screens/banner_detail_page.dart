@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
@@ -396,6 +398,9 @@ class _BannerMapState extends State<_BannerMap> {
   bool _showLocation = false;
   bool _loadingLocation = false;
   LatLng? _currentLocation;
+  Timer? _locationTimer;
+  bool _userInteracting = false;
+  Timer? _interactionDebounce;
 
   static List<LatLng> _missionPoints(MissionItem m) => m.steps
       .map((s) => s.poi)
@@ -415,8 +420,50 @@ class _BannerMapState extends State<_BannerMap> {
     );
   }
 
+  @override
+  void dispose() {
+    _locationTimer?.cancel();
+    _interactionDebounce?.cancel();
+    super.dispose();
+  }
+
+  void _onMapEvent(MapEvent event) {
+    if (event.source == MapEventSource.mapController ||
+        event.source == MapEventSource.nonRotatedSizeChange ||
+        event.source == MapEventSource.interactiveFlagsChanged ||
+        event.source == MapEventSource.fitCamera) {
+      return;
+    }
+    _interactionDebounce?.cancel();
+    _userInteracting = true;
+    _interactionDebounce = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _userInteracting = false);
+    });
+  }
+
+  Future<void> _refreshLocation({bool moveCamera = false}) async {
+    try {
+      final pos = await Geolocator.getCurrentPosition();
+      if (!mounted) return;
+      final loc = LatLng(pos.latitude, pos.longitude);
+      setState(() {
+        _currentLocation = loc;
+        _loadingLocation = false;
+      });
+      if (moveCamera || !_userInteracting) {
+        _mapController.move(loc, _mapController.camera.zoom);
+      }
+    } catch (_) {
+      if (mounted) setState(() { _showLocation = false; _loadingLocation = false; });
+      _locationTimer?.cancel();
+      _locationTimer = null;
+    }
+  }
+
   Future<void> _toggleLocation() async {
     if (_showLocation) {
+      _locationTimer?.cancel();
+      _locationTimer = null;
       setState(() => _showLocation = false);
       return;
     }
@@ -433,15 +480,11 @@ class _BannerMapState extends State<_BannerMap> {
         if (mounted) setState(() { _showLocation = false; _loadingLocation = false; });
         return;
       }
-      final pos = await Geolocator.getCurrentPosition();
-      if (mounted) {
-        final loc = LatLng(pos.latitude, pos.longitude);
-        setState(() {
-          _currentLocation = loc;
-          _loadingLocation = false;
-        });
-        _mapController.move(loc, _mapController.camera.zoom);
-      }
+      await _refreshLocation(moveCamera: true);
+      _locationTimer = Timer.periodic(
+        const Duration(seconds: 10),
+        (_) => _refreshLocation(),
+      );
     } catch (_) {
       if (mounted) setState(() { _showLocation = false; _loadingLocation = false; });
     }
@@ -603,7 +646,10 @@ class _BannerMapState extends State<_BannerMap> {
       children: [
         FlutterMap(
           mapController: _mapController,
-          options: MapOptions(initialCameraFit: cameraFit),
+          options: MapOptions(
+            initialCameraFit: cameraFit,
+            onMapEvent: _onMapEvent,
+          ),
           children: [
             TileLayer(
               urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
