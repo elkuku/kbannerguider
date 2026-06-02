@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Adaptive-icon foreground layer.
+  Transparent background — rendered on top of a solid black background layer.
+  No outer rounded-square border. No background rect.
+  Content fills a 680×680 viewBox; OS clips to its own shape (circle, squircle…).
+-->
+<svg viewBox="0 0 680 680" width="680" height="680" xmlns="http://www.w3.org/2000/svg">
+
+<defs>
+  <filter id="pulse" x="-60%" y="-60%" width="220%" height="220%">
+    <feGaussianBlur stdDeviation="14" result="b"/>
+    <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+    <feGaussianBlur stdDeviation="6" result="b"/>
+    <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+    <feGaussianBlur stdDeviation="3" result="b"/>
+    <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+</defs>
+
+<!-- ── Hexagonal scanner frame ──────────────────────────────────────────── -->
+<!-- Pointy-top hex  r=235  centre (340,340)
+     top:(340,105)  tr:(543,222)  br:(543,458)
+     bot:(340,575)  bl:(137,458)  tl:(137,222)        -->
+<polygon points="340,105 543,222 543,458 340,575 137,458 137,222"
+  fill="none" stroke="#333" stroke-width="2.5"/>
+<polygon points="340,127 523,233 523,447 340,553 157,447 157,233"
+  fill="none" stroke="#2a2a2a" stroke-width="1.5"/>
+<polygon points="340,152 503,248 503,432 340,528 177,432 177,248"
+  fill="none" stroke="#222" stroke-width="1"/>
+
+<!-- Six long diagonals through centre -->
+<line x1="340" y1="105" x2="340" y2="575" stroke="#252525" stroke-width="0.8"/>
+<line x1="137" y1="222" x2="543" y2="458" stroke="#252525" stroke-width="0.8"/>
+<line x1="543" y1="222" x2="137" y2="458" stroke="#252525" stroke-width="0.8"/>
+<!-- Secondary diagonals -->
+<line x1="340" y1="105" x2="543" y2="458" stroke="#1e1e1e" stroke-width="0.5"/>
+<line x1="340" y1="105" x2="137" y2="458" stroke="#1e1e1e" stroke-width="0.5"/>
+<line x1="543" y1="222" x2="340" y2="575" stroke="#1e1e1e" stroke-width="0.5"/>
+<line x1="137" y1="222" x2="340" y2="575" stroke="#1e1e1e" stroke-width="0.5"/>
+
+<!-- Edge midpoint accent dots -->
+<circle cx="442" cy="164" r="3"   fill="#3a3a3a"/>
+<circle cx="543" cy="340" r="3"   fill="#3a3a3a"/>
+<circle cx="442" cy="516" r="3"   fill="#3a3a3a"/>
+<circle cx="238" cy="516" r="3"   fill="#3a3a3a"/>
+<circle cx="137" cy="340" r="3"   fill="#3a3a3a"/>
+<circle cx="238" cy="164" r="3"   fill="#3a3a3a"/>
+
+<!-- ── HUD corner brackets ──────────────────────────────────────────────── -->
+<polyline points="175,155 140,155 140,190"
+  fill="none" stroke="#585858" stroke-width="2.5" stroke-linecap="round"/>
+<polyline points="505,155 540,155 540,190"
+  fill="none" stroke="#585858" stroke-width="2.5" stroke-linecap="round"/>
+<polyline points="175,525 140,525 140,490"
+  fill="none" stroke="#585858" stroke-width="2.5" stroke-linecap="round"/>
+<polyline points="505,525 540,525 540,490"
+  fill="none" stroke="#585858" stroke-width="2.5" stroke-linecap="round"/>
+
+<!-- ── Portal symbol  (▼ downward-pointing triangle) ────────────────────── -->
+<!-- top-left (188,205)  top-right (492,205)  apex (340,455)  centroid (340,288) -->
+
+<!-- Energy aura -->
+<polygon points="340,455 492,205 188,205"
+  fill="none" stroke="#787878" stroke-width="10"
+  filter="url(#pulse)" opacity="0.35"/>
+
+<!-- Main outer triangle -->
+<polygon points="340,455 492,205 188,205"
+  fill="none" stroke="#e2e2e2" stroke-width="3"
+  filter="url(#soft)"/>
+
+<!-- Concentric inner triangles -->
+<polygon points="340,438 477,218 203,218"
+  fill="none" stroke="#969696" stroke-width="1.8"/>
+<polygon points="340,421 462,231 218,231"
+  fill="none" stroke="#646464" stroke-width="1.3"/>
+<polygon points="340,404 447,244 233,244"
+  fill="none" stroke="#3e3e3e" stroke-width="0.9"/>
+<polygon points="340,387 432,257 248,257"
+  fill="none" stroke="#2c2c2c" stroke-width="0.7"/>
+
+<!-- Vertical axis -->
+<line x1="340" y1="205" x2="340" y2="455"
+  stroke="#d0d0d0" stroke-width="2" filter="url(#soft)"/>
+
+<!-- Diagonal inner spokes -->
+<line x1="340" y1="455" x2="232" y2="272" stroke="#686868" stroke-width="1.1"/>
+<line x1="340" y1="455" x2="448" y2="272" stroke="#686868" stroke-width="1.1"/>
+
+<!-- Horizontal scan lines (clipped to triangle interior) -->
+<line x1="237" y1="284" x2="443" y2="284" stroke="#424242" stroke-width="0.8"/>
+<line x1="252" y1="309" x2="428" y2="309" stroke="#383838" stroke-width="0.7"/>
+<line x1="267" y1="334" x2="413" y2="334" stroke="#303030" stroke-width="0.6"/>
+<line x1="282" y1="359" x2="398" y2="359" stroke="#282828" stroke-width="0.5"/>
+<line x1="297" y1="384" x2="383" y2="384" stroke="#202020" stroke-width="0.5"/>
+
+<!-- Vertex accent rings + dots -->
+<circle cx="188" cy="205" r="6"   fill="none" stroke="#b8b8b8" stroke-width="1.5"/>
+<circle cx="188" cy="205" r="2.5" fill="#b8b8b8"/>
+<circle cx="492" cy="205" r="6"   fill="none" stroke="#b8b8b8" stroke-width="1.5"/>
+<circle cx="492" cy="205" r="2.5" fill="#b8b8b8"/>
+<circle cx="340" cy="455" r="6"   fill="none" stroke="#b8b8b8" stroke-width="1.5"/>
+<circle cx="340" cy="455" r="2.5" fill="#b8b8b8"/>
+
+<!-- ── Central portal orb ───────────────────────────────────────────────── -->
+<circle cx="340" cy="288" r="34" fill="#707070"
+  filter="url(#pulse)" opacity="0.45"/>
+<circle cx="340" cy="288" r="24"
+  fill="none" stroke="#848484" stroke-width="1.5"
+  stroke-dasharray="5,4"/>
+<circle cx="340" cy="288" r="17"
+  fill="none" stroke="#b4b4b4" stroke-width="2.2"/>
+<circle cx="340" cy="288" r="11"
+  fill="#d4d4d4" filter="url(#soft)"/>
+<circle cx="340" cy="288" r="5.5" fill="#f2f2f2"/>
+<circle cx="340" cy="288" r="2.5" fill="#ffffff"/>
+
+</svg>
