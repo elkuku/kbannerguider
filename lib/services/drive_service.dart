@@ -5,14 +5,25 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 
+/// Structure of the data file on Drive:
+/// ```json
+/// {
+///   "listTypes":      { "bannerId": "todo|done|blacklist" },
+///   "guiderProgress": { "bannerId": { "index": 2, "missionId": "abc" } }
+/// }
+/// ```
 class DriveService {
   static const _dataFileName = 'kbannerguider_data.json';
   static const _scopes = [drive.DriveApi.driveFileScope];
 
-  /// Exposes a human-readable log of the last operation for debug display.
   final ValueNotifier<String> debugLog = ValueNotifier('—');
 
+  // Cache the Drive file ID to avoid repeated list queries.
+  String? _fileId;
+
   void _log(String msg) => debugLog.value = msg;
+
+  // ── Auth ─────────────────────────────────────────────────────────────────
 
   Future<drive.DriveApi?> _getApi() async {
     try {
@@ -26,7 +37,7 @@ class DriveService {
             .authorizeScopes(_scopes);
       }
 
-      _log('Authorization granted, building DriveApi client…');
+      _log('Authorization granted.');
       return drive.DriveApi(authorization.authClient(scopes: _scopes));
     } catch (e) {
       _log('Auth error: $e');
@@ -34,28 +45,31 @@ class DriveService {
     }
   }
 
-  Future<Map<String, String>> loadListTypes() async {
-    _log('loadListTypes: starting…');
+  // ── Low-level file helpers ────────────────────────────────────────────────
+
+  Future<String?> _resolveFileId(drive.DriveApi api) async {
+    if (_fileId != null) return _fileId;
+    final result = await api.files.list(
+      spaces: 'drive',
+      q: "name = '$_dataFileName' and trashed = false",
+      $fields: 'files(id)',
+    );
+    _fileId = result.files?.firstOrNull?.id;
+    return _fileId;
+  }
+
+  Future<Map<String, dynamic>> _loadData() async {
     final api = await _getApi();
     if (api == null) return {};
 
     try {
-      _log('Listing files matching "$_dataFileName"…');
-      final result = await api.files.list(
-        spaces: 'drive',
-        q: "name = '$_dataFileName' and trashed = false",
-        $fields: 'files(id,name)',
-      );
-
-      final files = result.files;
-      if (files == null || files.isEmpty) {
-        _log('No existing file found — will create on first save.');
+      final fileId = await _resolveFileId(api);
+      if (fileId == null) {
+        _log('No data file found on Drive.');
         return {};
       }
 
-      final fileId = files.first.id!;
-      _log('Found file id=$fileId, downloading…');
-
+      _log('Downloading data file id=$fileId…');
       final media = await api.files.get(
         fileId,
         downloadOptions: drive.DownloadOptions.fullMedia,
@@ -64,65 +78,98 @@ class DriveService {
       final bytes = <int>[];
       await media.stream.forEach(bytes.addAll);
       final content = utf8.decode(bytes);
-      _log('Downloaded ${bytes.length} bytes: $content');
-
-      final json = jsonDecode(content) as Map<String, dynamic>;
-      final types = (json['listTypes'] as Map<String, dynamic>?)
-              ?.cast<String, String>() ??
-          {};
-      _log('Loaded ${types.length} list-type entries.');
-      return types;
+      _log('Downloaded ${bytes.length} bytes.');
+      return jsonDecode(content) as Map<String, dynamic>;
     } catch (e) {
       _log('Load error: $e');
       return {};
     }
   }
 
-  Future<void> saveListTypes(Map<String, String> listTypes) async {
-    _log('saveListTypes: starting (${listTypes.length} entries)…');
+  Future<void> _saveData(Map<String, dynamic> data) async {
     final api = await _getApi();
     if (api == null) return;
 
     try {
-      final content = jsonEncode({'listTypes': listTypes});
-      final bytes = utf8.encode(content);
-      _log('Payload: $content');
-
+      final bytes = utf8.encode(jsonEncode(data));
       drive.Media buildMedia() => drive.Media(
             Stream.value(bytes),
             bytes.length,
             contentType: 'application/json',
           );
 
-      _log('Listing existing files…');
-      final result = await api.files.list(
-        spaces: 'drive',
-        q: "name = '$_dataFileName' and trashed = false",
-        $fields: 'files(id)',
-      );
-
-      final files = result.files;
-      if (files != null && files.isNotEmpty) {
-        final fileId = files.first.id!;
-        _log('Updating existing file id=$fileId…');
-        await api.files.update(
-          drive.File(),
-          fileId,
-          uploadMedia: buildMedia(),
-        );
+      final existingId = await _resolveFileId(api);
+      if (existingId != null) {
+        _log('Updating file id=$existingId…');
+        await api.files.update(drive.File(), existingId,
+            uploadMedia: buildMedia());
         _log('Update successful.');
       } else {
-        _log('No existing file — creating new file…');
+        _log('Creating new data file…');
         final created = await api.files.create(
           drive.File()
             ..name = _dataFileName
             ..mimeType = 'application/json',
           uploadMedia: buildMedia(),
         );
+        _fileId = created.id;
         _log('Created file id=${created.id}.');
       }
     } catch (e) {
       _log('Save error: $e');
     }
+  }
+
+  // ── List types ─────────────────────────────────────────────────────────────
+
+  Future<Map<String, String>> loadListTypes() async {
+    _log('loadListTypes: starting…');
+    final data = await _loadData();
+    final types =
+        (data['listTypes'] as Map<String, dynamic>?)?.cast<String, String>() ??
+            {};
+    _log('Loaded ${types.length} list-type entries.');
+    return types;
+  }
+
+  Future<void> saveListTypes(Map<String, String> listTypes) async {
+    _log('saveListTypes: ${listTypes.length} entries…');
+    final data = await _loadData();
+    data['listTypes'] = listTypes;
+    await _saveData(data);
+  }
+
+  // ── Guider progress ────────────────────────────────────────────────────────
+
+  /// Returns `{index, missionId}` for the given banner, or null if none saved.
+  Future<({int index, String missionId})?> loadGuiderProgress(
+      String bannerId) async {
+    _log('loadGuiderProgress: $bannerId');
+    final data = await _loadData();
+    final raw = (data['guiderProgress'] as Map<String, dynamic>?)?[bannerId]
+        as Map<String, dynamic>?;
+    if (raw == null) return null;
+    return (
+      index: (raw['index'] as num).toInt(),
+      missionId: raw['missionId'] as String,
+    );
+  }
+
+  Future<void> saveGuiderProgress(
+      String bannerId, int index, String missionId) async {
+    _log('saveGuiderProgress: $bannerId index=$index missionId=$missionId');
+    final data = await _loadData();
+    final progress =
+        (data['guiderProgress'] as Map<String, dynamic>?) ?? {};
+    progress[bannerId] = {'index': index, 'missionId': missionId};
+    data['guiderProgress'] = progress;
+    await _saveData(data);
+  }
+
+  Future<void> clearGuiderProgress(String bannerId) async {
+    _log('clearGuiderProgress: $bannerId');
+    final data = await _loadData();
+    (data['guiderProgress'] as Map<String, dynamic>?)?.remove(bannerId);
+    await _saveData(data);
   }
 }

@@ -59,6 +59,10 @@ class _BannerDetailPageState extends State<BannerDetailPage>
   late Map<String, String> _listTypes;
   late final TabController _tabController;
 
+  // ── Guider state ──────────────────────────────────────────────────────────
+  // 0 = ready to start first mission; missions.length = all done.
+  int _currentMissionIndex = 0;
+
   @override
   void initState() {
     super.initState();
@@ -79,11 +83,45 @@ class _BannerDetailPageState extends State<BannerDetailPage>
     try {
       final full = await widget.bannerService.fetchById(_banner.id);
       if (mounted) setState(() => _banner = full);
+      if (widget.driveService != null && full.missions.isNotEmpty) {
+        await _loadGuiderProgress(full);
+      }
     } catch (_) {
       // keep the list data already shown
     } finally {
       if (mounted) setState(() => _loadingDetail = false);
     }
+  }
+
+  Future<void> _loadGuiderProgress(BannerItem banner) async {
+    final progress =
+        await widget.driveService!.loadGuiderProgress(banner.id);
+    if (progress == null || !mounted) return;
+    // Prefer matching by missionId in case mission list order changed.
+    var index = progress.index;
+    final matchIdx =
+        banner.missions.indexWhere((m) => m.id == progress.missionId);
+    if (matchIdx >= 0) index = matchIdx;
+    setState(() =>
+        _currentMissionIndex = index.clamp(0, banner.missions.length));
+  }
+
+  Future<void> _setGuiderIndex(int index) async {
+    final clamped = index.clamp(0, _banner.missions.length);
+    setState(() => _currentMissionIndex = clamped);
+    if (widget.driveService == null || _banner.missions.isEmpty) return;
+    final missionId = clamped < _banner.missions.length
+        ? _banner.missions[clamped].id
+        : _banner.missions.last.id;
+    await widget.driveService!
+        .saveGuiderProgress(_banner.id, clamped, missionId);
+  }
+
+  Future<void> _launchCurrentMission() async {
+    if (_currentMissionIndex >= _banner.missions.length) return;
+    final mission = _banner.missions[_currentMissionIndex];
+    await _launch(mission.ingressUrl);
+    await _setGuiderIndex(_currentMissionIndex + 1);
   }
 
   Future<void> _setListType(String type) async {
@@ -138,6 +176,9 @@ class _BannerDetailPageState extends State<BannerDetailPage>
             bannerStartLng: _banner.startLongitude,
             bannerTitle: _banner.title,
             bannerAddress: _banner.formattedAddress,
+            currentMissionIndex: _currentMissionIndex,
+            onMissionIndexChanged: _setGuiderIndex,
+            onLaunchMission: _launchCurrentMission,
           ),
         ],
       ),
@@ -309,6 +350,9 @@ class _BannerMap extends StatefulWidget {
     this.bannerStartLng,
     this.bannerTitle,
     this.bannerAddress,
+    this.currentMissionIndex,
+    this.onMissionIndexChanged,
+    this.onLaunchMission,
   });
 
   final List<MissionItem> missions;
@@ -317,6 +361,9 @@ class _BannerMap extends StatefulWidget {
   final double? bannerStartLng;
   final String? bannerTitle;
   final String? bannerAddress;
+  final int? currentMissionIndex;
+  final void Function(int)? onMissionIndexChanged;
+  final Future<void> Function()? onLaunchMission;
 
   @override
   State<_BannerMap> createState() => _BannerMapState();
@@ -550,6 +597,30 @@ class _BannerMapState extends State<_BannerMap> {
             _MapLegend(missions: widget.missions, onFocus: _focusOnMission),
           ],
         ),
+        // Guider controls bar
+        if (widget.currentMissionIndex != null &&
+            widget.missions.isNotEmpty)
+          Positioned(
+            bottom: 8,
+            left: 8,
+            right: 8,
+            child: _GuiderBar(
+              currentIndex: widget.currentMissionIndex!,
+              total: widget.missions.length,
+              onDecrement: widget.currentMissionIndex! > 0
+                  ? () => widget
+                      .onMissionIndexChanged!(widget.currentMissionIndex! - 1)
+                  : null,
+              onIncrement:
+                  widget.currentMissionIndex! < widget.missions.length
+                      ? () => widget.onMissionIndexChanged!(
+                          widget.currentMissionIndex! + 1)
+                      : null,
+              onLaunch: widget.currentMissionIndex! < widget.missions.length
+                  ? widget.onLaunchMission
+                  : null,
+            ),
+          ),
         Positioned(
           top: 12,
           right: 12,
@@ -588,6 +659,110 @@ class _BannerMapState extends State<_BannerMap> {
     );
   }
 }
+
+// ─── Guider bar ──────────────────────────────────────────────────────────────
+
+class _GuiderBar extends StatefulWidget {
+  const _GuiderBar({
+    required this.currentIndex,
+    required this.total,
+    required this.onDecrement,
+    required this.onIncrement,
+    required this.onLaunch,
+  });
+
+  final int currentIndex;
+  final int total;
+  final VoidCallback? onDecrement;
+  final VoidCallback? onIncrement;
+  final Future<void> Function()? onLaunch;
+
+  @override
+  State<_GuiderBar> createState() => _GuiderBarState();
+}
+
+class _GuiderBarState extends State<_GuiderBar> {
+  bool _launching = false;
+
+  String get _buttonLabel {
+    if (widget.currentIndex == 0) return 'Start';
+    if (widget.currentIndex >= widget.total) return 'Done';
+    return 'Next';
+  }
+
+  IconData get _buttonIcon {
+    if (widget.currentIndex >= widget.total) return Icons.check_circle_outline;
+    return Icons.rocket_launch_outlined;
+  }
+
+  Future<void> _handleLaunch() async {
+    if (_launching || widget.onLaunch == null) return;
+    setState(() => _launching = true);
+    await widget.onLaunch!();
+    if (mounted) setState(() => _launching = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final displayIndex = widget.currentIndex.clamp(1, widget.total);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.95),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 6)],
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      child: Row(
+        children: [
+          // Decrement
+          IconButton(
+            icon: const Icon(Icons.remove),
+            iconSize: 20,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            onPressed: widget.onDecrement,
+          ),
+          // Counter
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(
+              '$displayIndex / ${widget.total}',
+              style: theme.textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w700),
+            ),
+          ),
+          // Increment
+          IconButton(
+            icon: const Icon(Icons.add),
+            iconSize: 20,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            onPressed: widget.onIncrement,
+          ),
+          const Spacer(),
+          // Launch button
+          FilledButton.icon(
+            onPressed:
+                widget.onLaunch == null || _launching ? null : _handleLaunch,
+            icon: _launching
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white),
+                  )
+                : Icon(_buttonIcon, size: 18),
+            label: Text(_buttonLabel),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 void _showStartSheet(
   BuildContext context, {
@@ -735,7 +910,7 @@ class _MapLegendState extends State<_MapLegend> {
   Widget build(BuildContext context) {
     if (widget.missions.isEmpty) return const SizedBox.shrink();
     return Align(
-      alignment: Alignment.bottomLeft,
+      alignment: Alignment.topLeft,
       child: Container(
         margin: const EdgeInsets.all(8),
         constraints: const BoxConstraints(maxWidth: 220),
