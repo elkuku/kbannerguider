@@ -21,11 +21,19 @@ class DriveService {
   // Cache the Drive file ID to avoid repeated list queries.
   String? _fileId;
 
+  // In-memory cache of the Drive JSON payload — avoids a download before
+  // every write (which would otherwise double the network round-trips).
+  Map<String, dynamic>? _cachedData;
+
+  // Cached DriveApi instance — re-used across calls until invalidated.
+  drive.DriveApi? _cachedApi;
+
   void _log(String msg) => debugLog.value = msg;
 
   // ── Auth ─────────────────────────────────────────────────────────────────
 
   Future<drive.DriveApi?> _getApi() async {
+    if (_cachedApi != null) return _cachedApi;
     try {
       _log('Trying silent authorization for drive.file scope…');
       var authorization = await GoogleSignIn.instance.authorizationClient
@@ -38,11 +46,20 @@ class DriveService {
       }
 
       _log('Authorization granted.');
-      return drive.DriveApi(authorization.authClient(scopes: _scopes));
+      _cachedApi = drive.DriveApi(authorization.authClient(scopes: _scopes));
+      return _cachedApi;
     } catch (e) {
       _log('Auth error: $e');
       return null;
     }
+  }
+
+  /// Clears all cached state (API client, data, file ID).
+  /// Call this when the user signs out.
+  void invalidate() {
+    _cachedApi = null;
+    _cachedData = null;
+    _fileId = null;
   }
 
   // ── Low-level file helpers ────────────────────────────────────────────────
@@ -59,6 +76,9 @@ class DriveService {
   }
 
   Future<Map<String, dynamic>> _loadData() async {
+    // Return in-memory cache when available.
+    if (_cachedData != null) return _cachedData!;
+
     final api = await _getApi();
     if (api == null) return {};
 
@@ -66,7 +86,8 @@ class DriveService {
       final fileId = await _resolveFileId(api);
       if (fileId == null) {
         _log('No data file found on Drive.');
-        return {};
+        _cachedData = {};
+        return _cachedData!;
       }
 
       _log('Downloading data file id=$fileId…');
@@ -79,14 +100,19 @@ class DriveService {
       await media.stream.forEach(bytes.addAll);
       final content = utf8.decode(bytes);
       _log('Downloaded ${bytes.length} bytes.');
-      return jsonDecode(content) as Map<String, dynamic>;
+      _cachedData = jsonDecode(content) as Map<String, dynamic>;
+      return _cachedData!;
     } catch (e) {
       _log('Load error: $e');
-      return {};
+      _cachedData = {};
+      return _cachedData!;
     }
   }
 
   Future<void> _saveData(Map<String, dynamic> data) async {
+    // Keep in-memory cache in sync immediately (optimistic update).
+    _cachedData = data;
+
     final api = await _getApi();
     if (api == null) return;
 
@@ -134,7 +160,8 @@ class DriveService {
 
   Future<void> saveListTypes(Map<String, String> listTypes) async {
     _log('saveListTypes: ${listTypes.length} entries…');
-    final data = await _loadData();
+    // Use cached data — no extra download needed.
+    final data = Map<String, dynamic>.of(await _loadData());
     data['listTypes'] = listTypes;
     await _saveData(data);
   }
@@ -158,9 +185,9 @@ class DriveService {
   Future<void> saveGuiderProgress(
       String bannerId, int index, String missionId) async {
     _log('saveGuiderProgress: $bannerId index=$index missionId=$missionId');
-    final data = await _loadData();
+    final data = Map<String, dynamic>.of(await _loadData());
     final progress =
-        (data['guiderProgress'] as Map<String, dynamic>?) ?? {};
+        Map<String, dynamic>.of((data['guiderProgress'] as Map<String, dynamic>?) ?? {});
     progress[bannerId] = {'index': index, 'missionId': missionId};
     data['guiderProgress'] = progress;
     await _saveData(data);
@@ -168,8 +195,11 @@ class DriveService {
 
   Future<void> clearGuiderProgress(String bannerId) async {
     _log('clearGuiderProgress: $bannerId');
-    final data = await _loadData();
-    (data['guiderProgress'] as Map<String, dynamic>?)?.remove(bannerId);
+    final data = Map<String, dynamic>.of(await _loadData());
+    final progress =
+        Map<String, dynamic>.of((data['guiderProgress'] as Map<String, dynamic>?) ?? {});
+    progress.remove(bannerId);
+    data['guiderProgress'] = progress;
     await _saveData(data);
   }
 }

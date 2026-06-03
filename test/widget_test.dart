@@ -64,7 +64,7 @@ void main() {
         ),
       );
 
-      expect(find.text('Nearby Banners'), findsOneWidget);
+      expect(find.text('BannerGuider'), findsOneWidget);
     });
 
     testWidgets('shows loading indicator on start', (tester) async {

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -12,6 +13,7 @@ import '../services/banner_service.dart';
 import '../services/cache_service.dart';
 import '../services/drive_service.dart';
 import '../services/location_service.dart';
+import '../utils/format.dart';
 import 'banner_detail_page.dart';
 import 'location_picker_page.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -60,6 +62,9 @@ class _BannerListPageState extends State<BannerListPage>
   String? _authError;
   late final TabController _tabController;
 
+  // Auth stream subscription — stored so it can be cancelled on dispose.
+  StreamSubscription<GoogleSignInAuthenticationEvent>? _authSub;
+
   // ─────────────────────────────────────────────────────────────────────
 
   bool get _isSignedIn => _user != null;
@@ -90,7 +95,7 @@ class _BannerListPageState extends State<BannerListPage>
   String? _formatDistance(BannerItem banner) {
     final m = _distanceMeters(banner);
     if (m == null) return null;
-    return m < 1000 ? '${m.round()} m' : '${(m / 1000).toStringAsFixed(1)} km';
+    return formatMeters(m.round());
   }
 
   @override
@@ -104,6 +109,7 @@ class _BannerListPageState extends State<BannerListPage>
 
   @override
   void dispose() {
+    _authSub?.cancel();
     _tabController
       ..removeListener(_onTabChanged)
       ..dispose();
@@ -122,12 +128,13 @@ class _BannerListPageState extends State<BannerListPage>
     final auth = widget._authService;
     if (auth == null) return;
     setState(() => _user = auth.currentUser);
-    auth.authenticationEvents.listen((event) {
+    _authSub = auth.authenticationEvents.listen((event) {
       switch (event) {
         case GoogleSignInAuthenticationEventSignIn(:final user):
           setState(() { _user = user; _authError = null; });
           _loadDriveData();
         case GoogleSignInAuthenticationEventSignOut():
+          widget._driveService?.invalidate();
           _cache.clearAll();
           setState(() {
             _user = null;
@@ -224,14 +231,17 @@ class _BannerListPageState extends State<BannerListPage>
 
     setState(() => _loadingTodo = true);
 
+    // Fetch all todo banners in parallel for speed.
     final fetched = <BannerItem>[];
-    for (final id in todoIds) {
-      try {
-        final banner = await widget._bannerService.fetchById(id);
-        fetched.add(banner);
-        if (mounted) setState(() => _todoBanners = List.of(fetched));
-      } catch (_) {}
-    }
+    await Future.wait(
+      todoIds.map((id) async {
+        try {
+          final banner = await widget._bannerService.fetchById(id);
+          fetched.add(banner);
+          if (mounted) setState(() => _todoBanners = List.of(fetched));
+        } catch (_) {}
+      }),
+    );
 
     // Sort by distance to current GPS position
     if (_position != null) {
@@ -275,54 +285,61 @@ class _BannerListPageState extends State<BannerListPage>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('BannerGuider'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loading
-                ? null
-                : () {
-                    _fetchBanners();
-                    if (_tabController.index == 1) _fetchTodoBanners();
-                  },
-          ),
-          if (widget._authService != null) _buildAccountButton(),
-        ],
-      ),
-      body: Column(
-        children: [
-          _LocationBar(
-            position: _position,
-            customCenter: _customCenter,
-            onPickLocation: _openLocationPicker,
-            onClearCustom: _clearCustomCenter,
-          ),
-          TabBar(
-            controller: _tabController,
-            tabs: [
-              Tab(
-                icon: const Icon(Icons.place_outlined),
-                text: 'Nearby${_banners.isNotEmpty ? ' (${_banners.length})' : ''}',
-              ),
-              Tab(
-                icon: const Icon(Icons.bookmark_outline),
-                text: 'To-do${_todoBanners.isNotEmpty ? ' (${_todoBanners.length})' : ''}',
-              ),
-            ],
-          ),
-          Expanded(
-            child: TabBarView(
+    // PopScope ensures _listTypes is returned even on system back-gesture.
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) Navigator.pop(context, _listTypes);
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('BannerGuider'),
+          backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _loading
+                  ? null
+                  : () {
+                      _fetchBanners();
+                      if (_tabController.index == 1) _fetchTodoBanners();
+                    },
+            ),
+            if (widget._authService != null) _buildAccountButton(),
+          ],
+        ),
+        body: Column(
+          children: [
+            _LocationBar(
+              position: _position,
+              customCenter: _customCenter,
+              onPickLocation: _openLocationPicker,
+              onClearCustom: _clearCustomCenter,
+            ),
+            TabBar(
               controller: _tabController,
-              children: [
-                _buildNearbyTab(),
-                _buildTodoTab(),
+              tabs: [
+                Tab(
+                  icon: const Icon(Icons.place_outlined),
+                  text: 'Nearby${_banners.isNotEmpty ? ' (${_banners.length})' : ''}',
+                ),
+                Tab(
+                  icon: const Icon(Icons.bookmark_outline),
+                  text: 'To-do${_todoBanners.isNotEmpty ? ' (${_todoBanners.length})' : ''}',
+                ),
               ],
             ),
-          ),
-        ],
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildNearbyTab(),
+                  _buildTodoTab(),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -391,7 +408,8 @@ class _BannerListPageState extends State<BannerListPage>
             banners: _banners,
             onChanged: (h) => setState(() => _hiddenFilters = h),
           ),
-        if (_isSignedIn && widget._driveService != null)
+        // Drive debug card is only useful during development.
+        if (kDebugMode && _isSignedIn && widget._driveService != null)
           _DriveDebugCard(driveService: widget._driveService!),
         Expanded(child: _buildNearbyContent()),
       ],

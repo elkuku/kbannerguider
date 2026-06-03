@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
@@ -12,6 +13,7 @@ import '../models/banner_item.dart';
 import '../models/mission_item.dart';
 import '../services/banner_service.dart';
 import '../services/drive_service.dart';
+import '../utils/format.dart';
 import '../widgets/full_image_dialog.dart';
 
 // Distinct colors assigned per mission index
@@ -141,10 +143,12 @@ class _BannerDetailPageState extends State<BannerDetailPage>
 
   Future<void> _setListType(String type) async {
     final old = _listTypes[_banner.id] ?? 'none';
+    if (old == type) return;
+
     setState(() {
       _debugEntries.add((
         time: DateTime.now(),
-        msg: '▶ setListType: $old → $type  [${_banner.id}]',
+        msg: '\u25b6 setListType: $old \u2192 $type  [${_banner.id}]',
       ));
     });
     final updated = Map<String, String>.of(_listTypes);
@@ -155,196 +159,242 @@ class _BannerDetailPageState extends State<BannerDetailPage>
     }
     setState(() => _listTypes = updated);
     await widget.driveService?.saveListTypes(updated);
+
+    // Show undo SnackBar so accidental changes can be reversed.
+    if (mounted && old != type) {
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.clearSnackBars();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Marked as ${_labelFor(type)}'),
+          action: SnackBarAction(
+            label: 'Undo',
+            onPressed: () => _setListType(old),
+          ),
+        ),
+      );
+    }
   }
+
+  static String _labelFor(String type) => switch (type) {
+    'todo'      => 'To-do',
+    'done'      => 'Done',
+    'blacklist' => 'Skip',
+    _           => 'None',
+  };
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(_banner.title),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        leading: BackButton(
-          onPressed: () => Navigator.pop(context, _listTypes),
-        ),
-        actions: [
-          if (_loadingDetail)
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: Center(
-                child: SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+    // PopScope ensures _listTypes is returned even on the system back-gesture.
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) Navigator.pop(context, _listTypes);
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(_banner.title),
+          backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+          leading: BackButton(
+            onPressed: () => Navigator.pop(context, _listTypes),
+          ),
+          actions: [
+            if (_loadingDetail)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: Center(
+                  child: SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
                 ),
               ),
-            ),
-        ],
-        bottom: TabBar(
+          ],
+          bottom: TabBar(
+            controller: _tabController,
+            tabs: const [
+              Tab(icon: Icon(Icons.list_outlined), text: 'Missions'),
+              Tab(icon: Icon(Icons.map_outlined), text: 'Map'),
+            ],
+          ),
+        ),
+        body: TabBarView(
           controller: _tabController,
-          tabs: const [
-            Tab(icon: Icon(Icons.list_outlined), text: 'Missions'),
-            Tab(icon: Icon(Icons.map_outlined), text: 'Map'),
+          children: [
+            _buildInfoTab(),
+            _BannerMap(
+              missions: _banner.missions,
+              loading: _loadingDetail,
+              bannerStartLat: _banner.startLatitude,
+              bannerStartLng: _banner.startLongitude,
+              bannerTitle: _banner.title,
+              bannerAddress: _banner.formattedAddress,
+              currentMissionIndex: _currentMissionIndex,
+              onMissionIndexChanged: _setGuiderIndex,
+              onLaunchMission: _launchCurrentMission,
+            ),
           ],
         ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildInfoTab(),
-          _BannerMap(
-            missions: _banner.missions,
-            loading: _loadingDetail,
-            bannerStartLat: _banner.startLatitude,
-            bannerStartLng: _banner.startLongitude,
-            bannerTitle: _banner.title,
-            bannerAddress: _banner.formattedAddress,
-            currentMissionIndex: _currentMissionIndex,
-            onMissionIndexChanged: _setGuiderIndex,
-            onLaunchMission: _launchCurrentMission,
-          ),
-        ],
       ),
     );
   }
 
   Widget _buildInfoTab() {
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Hero(
-            tag: 'banner-${_banner.id}',
-            child: GestureDetector(
-              onTap: () => showFullImage(context, _banner.pictureUrl),
-              child: CachedNetworkImage(
-                imageUrl: _banner.pictureUrl,
-                height: 200,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorWidget: (_, _, _) => Container(
-                  height: 200,
-                  color: Colors.grey.shade200,
-                  child: const Icon(Icons.map, size: 64, color: Colors.grey),
-                ),
-              ),
-            ),
-          ),
-          if (_banner.warning != null)
-            Container(
-              color: Colors.amber.shade100,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Row(
-                children: [
-                  const Icon(Icons.warning_amber, color: Colors.orange),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(_banner.warning!)),
-                ],
-              ),
-            ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _banner.title,
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                if (_banner.description != null &&
-                    _banner.description!.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    _banner.description!,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                ],
-                if (widget.driveService != null) ...[
-                  const SizedBox(height: 16),
-                  const Divider(),
-                  const SizedBox(height: 4),
-                  _ListTypeSelector(
-                    current: _listTypes[_banner.id] ?? 'none',
-                    onChanged: _setListType,
-                  ),
-                  const SizedBox(height: 8),
-                  _DebugPanel(entries: _debugEntries),
-                ],
-                const SizedBox(height: 16),
-                const Divider(),
-                const SizedBox(height: 8),
-                if (_banner.type != null)
-                  _InfoRow(
-                    icon: Icons.format_list_numbered,
-                    label: 'Type',
-                    value: _banner.type == 'sequential'
-                        ? 'Sequential'
-                        : 'Any order',
-                  ),
-                if (_banner.numberOfMissions != null)
-                  _InfoRow(
-                    icon: Icons.flag,
-                    label: 'Missions',
-                    value: _missionsLabel(_banner),
-                  ),
-                if (_banner.lengthMeters != null)
-                  _InfoRow(
-                    icon: Icons.straighten,
-                    label: 'Route length',
-                    value: _formatDistance(_banner.lengthMeters!),
-                  ),
-                if (_banner.formattedAddress != null)
-                  _InfoRow(
-                    icon: Icons.location_on,
-                    label: 'Start location',
-                    value: _banner.formattedAddress!,
-                  )
-                else if (_banner.startLatitude != null &&
-                    _banner.startLongitude != null)
-                  _InfoRow(
-                    icon: Icons.location_on,
-                    label: 'Start point',
-                    value:
-                        '${_banner.startLatitude!.toStringAsFixed(5)}, '
-                        '${_banner.startLongitude!.toStringAsFixed(5)}',
-                  ),
-                if (_banner.eventStartDate != null)
-                  _InfoRow(
-                    icon: Icons.event,
-                    label: 'Event',
-                    value: _banner.eventEndDate != null
-                        ? '${_banner.eventStartDate} – ${_banner.eventEndDate}'
-                        : _banner.eventStartDate!,
-                  ),
-                if (_banner.plannedOfflineDate != null)
-                  _InfoRow(
-                    icon: Icons.event_busy,
-                    label: 'Planned offline',
-                    value: _banner.plannedOfflineDate!,
-                  ),
-                if (_banner.missions.isNotEmpty || _loadingDetail) ...[
-                  const SizedBox(height: 16),
-                  const Divider(),
-                  const SizedBox(height: 4),
-                  if (_banner.missions.isNotEmpty)
-                    Text(
-                      'Missions (${_banner.missions.length})',
-                      style: Theme.of(context).textTheme.titleSmall,
+    return CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Hero(
+                tag: 'banner-${_banner.id}',
+                child: GestureDetector(
+                  onTap: () => showFullImage(context, _banner.pictureUrl),
+                  child: CachedNetworkImage(
+                    imageUrl: _banner.pictureUrl,
+                    height: 200,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorWidget: (_, _, _) => Container(
+                      height: 200,
+                      color: Colors.grey.shade200,
+                      child: const Icon(Icons.map, size: 64, color: Colors.grey),
                     ),
-                  const SizedBox(height: 4),
-                ],
-              ],
+                  ),
+                ),
+              ),
+              if (_banner.warning != null)
+                Container(
+                  color: Colors.amber.shade100,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.warning_amber, color: Colors.orange),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(_banner.warning!)),
+                    ],
+                  ),
+                ),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _banner.title,
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    if (_banner.description != null &&
+                        _banner.description!.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        _banner.description!,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ],
+                    if (widget.driveService != null) ...[
+                      const SizedBox(height: 16),
+                      const Divider(),
+                      const SizedBox(height: 4),
+                      _ListTypeSelector(
+                        current: _listTypes[_banner.id] ?? 'none',
+                        onChanged: _setListType,
+                      ),
+                      const SizedBox(height: 8),
+                      // Debug panel is only useful during development.
+                      if (kDebugMode)
+                        _DebugPanel(entries: _debugEntries),
+                    ],
+                    const SizedBox(height: 16),
+                    const Divider(),
+                    const SizedBox(height: 8),
+                    if (_banner.type != null)
+                      _InfoRow(
+                        icon: Icons.format_list_numbered,
+                        label: 'Type',
+                        value: _banner.type == 'sequential'
+                            ? 'Sequential'
+                            : 'Any order',
+                      ),
+                    if (_banner.numberOfMissions != null)
+                      _InfoRow(
+                        icon: Icons.flag,
+                        label: 'Missions',
+                        value: _missionsLabel(_banner),
+                      ),
+                    if (_banner.lengthMeters != null)
+                      _InfoRow(
+                        icon: Icons.straighten,
+                        label: 'Route length',
+                        value: _formatDistance(_banner.lengthMeters!),
+                      ),
+                    if (_banner.formattedAddress != null)
+                      _InfoRow(
+                        icon: Icons.location_on,
+                        label: 'Start location',
+                        value: _banner.formattedAddress!,
+                      )
+                    else if (_banner.startLatitude != null &&
+                        _banner.startLongitude != null)
+                      _InfoRow(
+                        icon: Icons.location_on,
+                        label: 'Start point',
+                        value:
+                            '${_banner.startLatitude!.toStringAsFixed(5)}, '
+                            '${_banner.startLongitude!.toStringAsFixed(5)}',
+                      ),
+                    if (_banner.eventStartDate != null)
+                      _InfoRow(
+                        icon: Icons.event,
+                        label: 'Event',
+                        value: _banner.eventEndDate != null
+                            ? '${_banner.eventStartDate} – ${_banner.eventEndDate}'
+                            : _banner.eventStartDate!,
+                      ),
+                    if (_banner.plannedOfflineDate != null)
+                      _InfoRow(
+                        icon: Icons.event_busy,
+                        label: 'Planned offline',
+                        value: _banner.plannedOfflineDate!,
+                      ),
+                    if (_banner.missions.isNotEmpty || _loadingDetail) ...[
+                      const SizedBox(height: 16),
+                      const Divider(),
+                      const SizedBox(height: 4),
+                      if (_banner.missions.isNotEmpty)
+                        Text(
+                          'Missions (${_banner.missions.length})',
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
+                      const SizedBox(height: 4),
+                    ],
+                  ],
+                ),
+              ),
+              if (_loadingDetail && _banner.missions.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 32),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+            ],
+          ),
+        ),
+        // Missions are rendered lazily so a banner with 300 missions doesn't
+        // force all tiles to be built at once (avoids the shrinkWrap penalty).
+        if (_banner.missions.isNotEmpty)
+          SliverList.builder(
+            itemCount: _banner.missions.length,
+            itemBuilder: (_, i) => _MissionTile(
+              index: i,
+              mission: _banner.missions[i],
+              color: _missionColor(i),
             ),
           ),
-          if (_loadingDetail && _banner.missions.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 32),
-              child: Center(child: CircularProgressIndicator()),
-            )
-          else if (_banner.missions.isNotEmpty)
-            _MissionList(missions: _banner.missions),
-        ],
-      ),
+        // Bottom padding so the last tile isn't flush with the screen edge.
+        const SliverToBoxAdapter(child: SizedBox(height: 24)),
+      ],
     );
   }
 
@@ -356,12 +406,7 @@ class _BannerDetailPageState extends State<BannerDetailPage>
     return '$total';
   }
 
-  String _formatDistance(int meters) {
-    if (meters >= 1000) {
-      return '${(meters / 1000).toStringAsFixed(1)} km';
-    }
-    return '$meters m';
-  }
+  String _formatDistance(int meters) => formatMeters(meters);
 }
 
 // ─── Map tab ─────────────────────────────────────────────────────────────────
@@ -497,6 +542,10 @@ class _BannerMapState extends State<_BannerMap> {
     }
 
     final allPoints = widget.missions.expand(_missionPoints).toList();
+
+    if (widget.loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
     if (allPoints.isEmpty) {
       return const Center(child: Text('No waypoint coordinates available.'));
@@ -1069,7 +1118,8 @@ class _ListTypeSelector extends StatelessWidget {
   final String current;
   final ValueChanged<String> onChanged;
 
-  static const _options = [
+  // Explicit Color type removes the need for `as Color` casts at every use site.
+  static const List<(String, IconData, String, Color)> _options = [
     ('none', Icons.label_off_outlined, 'None', Colors.grey),
     ('todo', Icons.bookmark_outline, 'To-do', Colors.blue),
     ('done', Icons.check_circle_outline, 'Done', Colors.green),
@@ -1091,11 +1141,11 @@ class _ListTypeSelector extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 6),
               decoration: BoxDecoration(
                 color: selected
-                    ? (color as Color).withValues(alpha: 0.15)
+                    ? color.withValues(alpha: 0.15)
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: selected ? color as Color : Colors.grey.shade300,
+                  color: selected ? color : Colors.grey.shade300,
                   width: selected ? 1.5 : 1,
                 ),
               ),
@@ -1103,13 +1153,13 @@ class _ListTypeSelector extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(icon, size: 20,
-                      color: selected ? color as Color : Colors.grey),
+                      color: selected ? color : Colors.grey),
                   const SizedBox(height: 2),
                   Text(
                     label,
                     style: TextStyle(
                       fontSize: 11,
-                      color: selected ? color as Color : Colors.grey,
+                      color: selected ? color : Colors.grey,
                       fontWeight:
                           selected ? FontWeight.w600 : FontWeight.normal,
                     ),
@@ -1173,7 +1223,7 @@ class _DebugPanel extends StatelessWidget {
                       final ts =
                           '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}:${t.second.toString().padLeft(2, '0')}.${t.millisecond.toString().padLeft(3, '0')}';
                       final Color msgColor;
-                      if (e.msg.contains('rror') || e.msg.contains('rror')) {
+                      if (e.msg.contains('rror')) {
                         msgColor = const Color(0xFFFF6B6B);
                       } else if (e.msg.startsWith('▶')) {
                         msgColor = const Color(0xFF4FC3F7);
@@ -1219,25 +1269,8 @@ class _DebugPanel extends StatelessWidget {
 
 // ─── Mission list ─────────────────────────────────────────────────────────────
 
-class _MissionList extends StatelessWidget {
-  const _MissionList({required this.missions});
-
-  final List<MissionItem> missions;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: missions.length,
-      itemBuilder: (_, i) => _MissionTile(
-        index: i,
-        mission: missions[i],
-        color: _missionColor(i),
-      ),
-    );
-  }
-}
+// _MissionList removed — missions are now rendered directly as a
+// SliverList.builder inside _buildInfoTab for lazy layout.
 
 class _MissionTile extends StatelessWidget {
   const _MissionTile({
@@ -1304,9 +1337,7 @@ class _MissionTile extends StatelessWidget {
           if (stepCount > 0)
             '$stepCount waypoint${stepCount == 1 ? '' : 's'}',
           if (mission.lengthMeters != null)
-            mission.lengthMeters! >= 1000
-                ? '${(mission.lengthMeters! / 1000).toStringAsFixed(1)} km'
-                : '${mission.lengthMeters} m',
+            formatMeters(mission.lengthMeters!),
         ].join(' · '),
         style: const TextStyle(fontSize: 12),
       ),
