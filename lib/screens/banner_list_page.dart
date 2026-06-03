@@ -8,6 +8,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../config.dart';
 import '../models/banner_item.dart';
+import '../version.dart';
 import '../services/auth_service.dart';
 import '../services/banner_service.dart';
 import '../services/cache_service.dart';
@@ -293,7 +294,7 @@ class _BannerListPageState extends State<BannerListPage>
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('BannerGuider'),
+          title: const Text('BannerGuider $appVersion'),
           backgroundColor: Theme.of(context).colorScheme.inversePrimary,
           actions: [
             IconButton(

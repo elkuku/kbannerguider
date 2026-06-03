@@ -9,8 +9,10 @@ Flutter Android app for the Ingress game. It shows Bannergress banners nearby, l
 After every code change:
 
 ```bash
-flutter build apk && flutter install
+./build.sh
 ```
+
+This stamps the build with the current datetime (`YYYYMMDD-HHmm`), embeds it in the title bar via `--dart-define=APP_VERSION=...`, copies the APK to `build/app/outputs/flutter-apk/kbannerguider-<version>.apk`, then installs it.
 
 Target device: Pixel 6a (`23191JEGR03752`).
 
