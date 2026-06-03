@@ -159,29 +159,7 @@ class _BannerDetailPageState extends State<BannerDetailPage>
     }
     setState(() => _listTypes = updated);
     await widget.driveService?.saveListTypes(updated);
-
-    // Show undo SnackBar so accidental changes can be reversed.
-    if (mounted && old != type) {
-      final messenger = ScaffoldMessenger.of(context);
-      messenger.clearSnackBars();
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('Marked as ${_labelFor(type)}'),
-          action: SnackBarAction(
-            label: 'Undo',
-            onPressed: () => _setListType(old),
-          ),
-        ),
-      );
-    }
   }
-
-  static String _labelFor(String type) => switch (type) {
-    'todo'      => 'To-do',
-    'done'      => 'Done',
-    'blacklist' => 'Skip',
-    _           => 'None',
-  };
 
   @override
   Widget build(BuildContext context) {
