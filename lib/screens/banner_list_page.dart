@@ -619,8 +619,36 @@ class _BannerListPageState extends State<BannerListPage>
         ),
       ),
       title: Text(banner.title),
-      subtitle: subtitleParts.isNotEmpty
-          ? Text(subtitleParts.join('  ·  '))
+      subtitle: (subtitleParts.isNotEmpty || banner.warning != null)
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (subtitleParts.isNotEmpty)
+                  Text(subtitleParts.join('  ·  ')),
+                if (banner.warning != null)
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.warning_amber_outlined,
+                        size: 12,
+                        color: Colors.amber,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          banner.warning!,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.amber,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            )
           : null,
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
