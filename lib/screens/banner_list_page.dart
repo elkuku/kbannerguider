@@ -336,7 +336,16 @@ class _BannerListPageState extends State<BannerListPage>
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('BannerGuider $appVersion'),
+          title: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('BannerGuider'),
+              Text(
+                appVersion,
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.normal),
+              ),
+            ],
+          ),
           backgroundColor: Theme.of(context).colorScheme.inversePrimary,
           actions: [
             IconButton(
