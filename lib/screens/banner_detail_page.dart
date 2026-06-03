@@ -277,6 +277,25 @@ class _BannerDetailPageState extends State<BannerDetailPage>
                     ],
                   ),
                 ),
+              if (_banner.missions.any(
+                    (m) => m.steps.any((s) => s.objective == 'enterPassphrase'),
+                  ))
+                Container(
+                  color: Colors.amber.shade100,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.key_outlined, color: Colors.amber),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'One or more missions require a passphrase.',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -1321,6 +1340,11 @@ class _MissionTile extends StatelessWidget {
                   const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
             ),
           ),
+          if (mission.steps.any((s) => s.objective == 'enterPassphrase'))
+            const Padding(
+              padding: EdgeInsets.only(right: 4),
+              child: Icon(Icons.key_outlined, size: 16, color: Colors.amber),
+            ),
           IconButton(
             icon: const Icon(Icons.open_in_new, size: 18),
             tooltip: 'Open in Ingress',

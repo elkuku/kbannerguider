@@ -5,6 +5,8 @@ import 'package:http/http.dart' as http;
 import '../models/banner_item.dart';
 
 class BannerService {
+  static const int pageSize = 25;
+
   final http.Client _client;
 
   BannerService({http.Client? client}) : _client = client ?? http.Client();
@@ -12,7 +14,7 @@ class BannerService {
   Future<List<BannerItem>> fetchNearby({
     required double latitude,
     required double longitude,
-    int limit = 100,
+    int offset = 0,
   }) async {
     final uri = Uri.parse(
       'https://api.bannergress.com/bnrs'
@@ -21,7 +23,8 @@ class BannerService {
       '&online=true'
       '&proximityLatitude=$latitude'
       '&proximityLongitude=$longitude'
-      '&limit=$limit',
+      '&offset=$offset'
+      '&limit=$pageSize',
     );
 
     final response = await _client.get(uri);

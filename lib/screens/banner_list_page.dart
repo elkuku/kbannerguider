@@ -47,8 +47,13 @@ class _BannerListPageState extends State<BannerListPage>
   // ── Nearby tab state ──────────────────────────────────────────────────
   List<BannerItem> _banners = [];
   bool _loading = false;
+  bool _loadingMore = false;
+  bool _hasMore = true;
+  double? _fetchLat;
+  double? _fetchLng;
   String? _error;
   Set<String> _hiddenFilters = {};
+  final ScrollController _nearbyScrollController = ScrollController();
 
   // ── To-do tab state ───────────────────────────────────────────────────
   List<BannerItem> _todoBanners = [];
@@ -104,6 +109,7 @@ class _BannerListPageState extends State<BannerListPage>
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(_onTabChanged);
+    _nearbyScrollController.addListener(_onNearbyScroll);
     _fetchBanners();
     _initAuth();
   }
@@ -111,6 +117,7 @@ class _BannerListPageState extends State<BannerListPage>
   @override
   void dispose() {
     _authSub?.cancel();
+    _nearbyScrollController.dispose();
     _tabController
       ..removeListener(_onTabChanged)
       ..dispose();
@@ -182,8 +189,18 @@ class _BannerListPageState extends State<BannerListPage>
 
   // ── Nearby fetching ────────────────────────────────────────────────────
 
+  void _onNearbyScroll() {
+    if (_nearbyScrollController.position.pixels >=
+            _nearbyScrollController.position.maxScrollExtent - 300 &&
+        !_loadingMore &&
+        _hasMore &&
+        !_loading) {
+      _fetchMoreBanners();
+    }
+  }
+
   Future<void> _fetchBanners() async {
-    setState(() { _loading = true; _error = null; });
+    setState(() { _loading = true; _error = null; _hasMore = true; });
     try {
       double lat, lng;
       if (_customCenter != null) {
@@ -199,13 +216,38 @@ class _BannerListPageState extends State<BannerListPage>
         lat = position.latitude;
         lng = position.longitude;
       }
+      _fetchLat = lat;
+      _fetchLng = lng;
       final banners = await widget._bannerService.fetchNearby(
         latitude: lat,
         longitude: lng,
       );
-      setState(() { _banners = banners; _loading = false; });
+      setState(() {
+        _banners = banners;
+        _loading = false;
+        _hasMore = banners.length >= BannerService.pageSize;
+      });
     } catch (e) {
       setState(() { _error = e.toString(); _loading = false; });
+    }
+  }
+
+  Future<void> _fetchMoreBanners() async {
+    if (_loadingMore || !_hasMore || _fetchLat == null || _fetchLng == null) return;
+    setState(() => _loadingMore = true);
+    try {
+      final more = await widget._bannerService.fetchNearby(
+        latitude: _fetchLat!,
+        longitude: _fetchLng!,
+        offset: _banners.length,
+      );
+      setState(() {
+        _banners = [..._banners, ...more];
+        _loadingMore = false;
+        _hasMore = more.length >= BannerService.pageSize;
+      });
+    } catch (_) {
+      setState(() => _loadingMore = false);
     }
   }
 
@@ -450,9 +492,18 @@ class _BannerListPageState extends State<BannerListPage>
     }
 
     return ListView.separated(
-      itemCount: visible.length,
+      controller: _nearbyScrollController,
+      itemCount: visible.length + (_loadingMore ? 1 : 0),
       separatorBuilder: (_, _) => const Divider(height: 1),
-      itemBuilder: (_, i) => _buildBannerTile(visible[i]),
+      itemBuilder: (_, i) {
+        if (i == visible.length) {
+          return const Padding(
+            padding: EdgeInsets.all(16),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        return _buildBannerTile(visible[i]);
+      },
     );
   }
 
@@ -574,6 +625,13 @@ class _BannerListPageState extends State<BannerListPage>
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (banner.missions.any(
+                (m) => m.steps.any((s) => s.objective == 'enterPassphrase'),
+              ))
+            const Padding(
+              padding: EdgeInsets.only(right: 4),
+              child: Icon(Icons.key_outlined, size: 16, color: Colors.amber),
+            ),
           if (listType != null && listType != 'none')
             _ListTypeBadge(listType: listType),
           const Icon(Icons.chevron_right),
