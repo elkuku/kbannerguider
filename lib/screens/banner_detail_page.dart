@@ -820,9 +820,12 @@ class _GuiderBarState extends State<_GuiderBar> {
     final theme = Theme.of(context);
     final displayIndex = widget.currentIndex.clamp(1, widget.total);
 
+    final isDark = theme.brightness == Brightness.dark;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.95),
+        color: isDark
+            ? Colors.grey[900]!.withValues(alpha: 0.95)
+            : Colors.white.withValues(alpha: 0.95),
         borderRadius: BorderRadius.circular(12),
         boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 6)],
       ),
@@ -1022,13 +1025,20 @@ class _MapLegendState extends State<_MapLegend> {
   @override
   Widget build(BuildContext context) {
     if (widget.missions.isEmpty) return const SizedBox.shrink();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark
+        ? Colors.grey[900]!.withValues(alpha: 0.93)
+        : Colors.white.withValues(alpha: 0.93);
+    final labelColor = isDark ? Colors.white70 : Colors.black54;
+    final iconColor = isDark ? Colors.white54 : Colors.black45;
+    final textColor = isDark ? Colors.white : Colors.black87;
     return Align(
       alignment: Alignment.topLeft,
       child: Container(
         margin: const EdgeInsets.all(8),
         constraints: const BoxConstraints(maxWidth: 220),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.93),
+          color: bgColor,
           borderRadius: BorderRadius.circular(8),
           boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
         ),
@@ -1044,19 +1054,19 @@ class _MapLegendState extends State<_MapLegend> {
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 child: Row(
                   children: [
-                    const Text(
+                    Text(
                       'Missions',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
-                        color: Colors.black54,
+                        color: labelColor,
                       ),
                     ),
                     const Spacer(),
                     Icon(
                       _expanded ? Icons.expand_less : Icons.expand_more,
                       size: 16,
-                      color: Colors.black45,
+                      color: iconColor,
                     ),
                   ],
                 ),
@@ -1083,13 +1093,13 @@ class _MapLegendState extends State<_MapLegend> {
                               Expanded(
                                 child: Text(
                                   '${e.key + 1}. ${e.value.title}',
-                                  style: const TextStyle(fontSize: 11),
+                                  style: TextStyle(fontSize: 11, color: textColor),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                               const SizedBox(width: 4),
                               Icon(Icons.center_focus_weak,
-                                  size: 13, color: Colors.black38),
+                                  size: 13, color: iconColor),
                             ],
                           ),
                         ),

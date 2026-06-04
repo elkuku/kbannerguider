@@ -28,6 +28,8 @@ class BannerListPage extends StatefulWidget {
     BannerService? bannerService,
     AuthService? authService,
     DriveService? driveService,
+    this.onToggleTheme,
+    this.isDarkMode = true,
   })  : _locationService = locationService ?? const LocationService(),
         _bannerService = bannerService ?? BannerService(),
         _authService = authService,
@@ -37,6 +39,8 @@ class BannerListPage extends StatefulWidget {
   final BannerService _bannerService;
   final AuthService? _authService;
   final DriveService? _driveService;
+  final VoidCallback? onToggleTheme;
+  final bool isDarkMode;
 
   @override
   State<BannerListPage> createState() => _BannerListPageState();
@@ -339,7 +343,7 @@ class _BannerListPageState extends State<BannerListPage>
           title: const Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('BannerGuider'),
+              Text('KBannerGuider'),
               Text(
                 appVersion,
                 style: TextStyle(fontSize: 11, fontWeight: FontWeight.normal),
@@ -347,6 +351,13 @@ class _BannerListPageState extends State<BannerListPage>
             ],
           ),
           actions: [
+            IconButton(
+              icon: Icon(
+                widget.isDarkMode ? Icons.light_mode : Icons.dark_mode,
+              ),
+              onPressed: widget.onToggleTheme,
+              tooltip: widget.isDarkMode ? 'Switch to light mode' : 'Switch to dark mode',
+            ),
             IconButton(
               icon: const Icon(Icons.refresh),
               onPressed: _loading
