@@ -346,7 +346,6 @@ class _BannerListPageState extends State<BannerListPage>
               ),
             ],
           ),
-          backgroundColor: Theme.of(context).colorScheme.inversePrimary,
           actions: [
             IconButton(
               icon: const Icon(Icons.refresh),

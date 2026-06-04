@@ -22,6 +22,15 @@ class KBannerGuiderApp extends StatelessWidget {
       title: 'KBannerGuider',
       theme: ThemeData(
         useMaterial3: true,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF212121),
+          foregroundColor: Colors.white,
+          titleTextStyle: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
       ),
       home: BannerListPage(
         authService: authService,

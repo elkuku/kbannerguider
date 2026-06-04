@@ -172,7 +172,6 @@ class _BannerDetailPageState extends State<BannerDetailPage>
       child: Scaffold(
         appBar: AppBar(
           title: Text(_banner.title),
-          backgroundColor: Theme.of(context).colorScheme.inversePrimary,
           leading: BackButton(
             onPressed: () => Navigator.pop(context, _listTypes),
           ),
