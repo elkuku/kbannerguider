@@ -1,0 +1,99 @@
+name: Build APK and Publish
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set version
+        id: version
+        run: echo "VERSION=$(date +'%Y%m%d-%H%M')" >> "$GITHUB_OUTPUT"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      - name: Build APK
+        run: flutter build apk --dart-define=APP_VERSION="${{ steps.version.outputs.VERSION }}"
+
+      - name: Prepare download page
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+          SHA: ${{ github.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          mkdir -p pages
+          APK_NAME="kbannerguider-${VERSION}.apk"
+          cp build/app/outputs/flutter-apk/app-release.apk "pages/${APK_NAME}"
+
+          cat > pages/index.html << HTMLEOF
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>kBannerGuider — Download</title>
+            <style>
+              body { font-family: system-ui, sans-serif; max-width: 600px; margin: 4rem auto; padding: 0 1.5rem; background: #111; color: #e0e0e0; }
+              h1 { font-size: 1.6rem; margin-bottom: 0.25rem; }
+              .subtitle { color: #888; font-size: 0.9rem; margin-bottom: 2.5rem; }
+              .card { background: #1e1e1e; border: 1px solid #333; border-radius: 8px; padding: 1.5rem 2rem; }
+              .version { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem; }
+              .meta { font-size: 0.8rem; color: #888; margin-bottom: 1.5rem; word-break: break-all; }
+              .meta a { color: #7aafff; }
+              .btn { display: inline-block; background: #2563eb; color: #fff; text-decoration: none;
+                     padding: 0.75rem 1.5rem; border-radius: 6px; font-weight: 600; font-size: 1rem; }
+              .btn:hover { background: #1d4ed8; }
+              .note { font-size: 0.8rem; color: #666; margin-top: 1rem; }
+            </style>
+          </head>
+          <body>
+            <h1>kBannerGuider</h1>
+            <p class="subtitle">Ingress banner guide &amp; mission navigator</p>
+            <div class="card">
+              <div class="version">Version ${VERSION}</div>
+              <div class="meta">
+                Commit: <a href="${RUN_URL}">${SHA}</a>
+              </div>
+              <a class="btn" href="${APK_NAME}" download>Download APK</a>
+              <p class="note">Enable <em>Install from unknown sources</em> in Android settings before installing.</p>
+            </div>
+          </body>
+          </html>
+          HTMLEOF
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: pages
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
