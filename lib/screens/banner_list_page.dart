@@ -1,18 +1,15 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:latlong2/latlong.dart';
 
-import '../config.dart';
 import '../models/banner_item.dart';
 import '../version.dart';
 import '../services/auth_service.dart';
 import '../services/banner_service.dart';
 import '../services/cache_service.dart';
-import '../services/drive_service.dart';
+import '../services/local_storage_service.dart';
 import '../services/location_service.dart';
 import '../utils/format.dart';
 import 'banner_detail_page.dart';
@@ -27,18 +24,18 @@ class BannerListPage extends StatefulWidget {
     LocationService? locationService,
     BannerService? bannerService,
     AuthService? authService,
-    DriveService? driveService,
+    LocalStorageService? storageService,
     this.onToggleTheme,
     this.isDarkMode = true,
   })  : _locationService = locationService ?? const LocationService(),
         _bannerService = bannerService ?? BannerService(),
         _authService = authService,
-        _driveService = driveService;
+        _storageService = storageService ?? LocalStorageService();
 
   final LocationService _locationService;
   final BannerService _bannerService;
   final AuthService? _authService;
-  final DriveService? _driveService;
+  final LocalStorageService _storageService;
   final VoidCallback? onToggleTheme;
   final bool isDarkMode;
 
@@ -65,19 +62,15 @@ class _BannerListPageState extends State<BannerListPage>
   final _cache = CacheService();
 
   // ── Shared state ──────────────────────────────────────────────────────
-  Position? _position;           // actual GPS — used for distances
-  LatLng? _customCenter;         // custom search center (null = use GPS)
-  GoogleSignInAccount? _user;
+  Position? _position;
+  LatLng? _customCenter;
+  bool _isSignedIn = false;
+  bool _checkingAuth = false;
   Map<String, String> _listTypes = {};
   String? _authError;
   late final TabController _tabController;
 
-  // Auth stream subscription — stored so it can be cancelled on dispose.
-  StreamSubscription<GoogleSignInAuthenticationEvent>? _authSub;
-
   // ─────────────────────────────────────────────────────────────────────
-
-  bool get _isSignedIn => _user != null;
 
   List<BannerItem> get _filteredBanners {
     if (_hiddenFilters.isEmpty) return _banners;
@@ -114,13 +107,13 @@ class _BannerListPageState extends State<BannerListPage>
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(_onTabChanged);
     _nearbyScrollController.addListener(_onNearbyScroll);
+    _loadLocalData();
     _fetchBanners();
-    _initAuth();
+    _checkAuth();
   }
 
   @override
   void dispose() {
-    _authSub?.cancel();
     _nearbyScrollController.dispose();
     _tabController
       ..removeListener(_onTabChanged)
@@ -129,67 +122,69 @@ class _BannerListPageState extends State<BannerListPage>
   }
 
   void _onTabChanged() {
-    if (_tabController.index == 1 && _isSignedIn && !_loadingTodo) {
+    if (_tabController.index == 1 && !_loadingTodo) {
       _fetchTodoBanners();
     }
   }
 
   // ── Auth ───────────────────────────────────────────────────────────────
 
-  void _initAuth() {
+  Future<void> _checkAuth() async {
     final auth = widget._authService;
     if (auth == null) return;
-    setState(() => _user = auth.currentUser);
-    _authSub = auth.authenticationEvents.listen((event) {
-      switch (event) {
-        case GoogleSignInAuthenticationEventSignIn(:final user):
-          setState(() { _user = user; _authError = null; });
-          _loadDriveData();
-        case GoogleSignInAuthenticationEventSignOut():
-          widget._driveService?.invalidate();
-          _cache.clearAll();
-          setState(() {
-            _user = null;
-            _listTypes = {};
-            _hiddenFilters = {};
-            _todoBanners = [];
-          });
-      }
-    });
-    if (auth.currentUser != null) _loadDriveData();
-  }
-
-  Future<void> _loadDriveData() async {
-    final drive = widget._driveService;
-    if (drive == null) return;
-
-    // Show cached list types immediately
-    final cached = await _cache.loadListTypes();
-    if (cached != null && mounted) {
-      setState(() => _listTypes = cached);
-      if (_tabController.index == 1) _fetchTodoBanners();
-    }
-
-    // Fetch fresh from Drive in background
-    final types = await drive.loadListTypes();
+    final loggedIn = await auth.isLoggedIn();
     if (!mounted) return;
-    unawaited(_cache.saveListTypes(types));
-    setState(() => _listTypes = types);
-    if (_todoBanners.isNotEmpty || _tabController.index == 1) {
+    setState(() => _isSignedIn = loggedIn);
+    if (loggedIn && _tabController.index == 1) {
       _fetchTodoBanners();
     }
   }
 
   Future<void> _signIn() async {
-    setState(() => _authError = null);
+    final auth = widget._authService;
+    if (auth == null) return;
+    setState(() {
+      _authError = null;
+      _checkingAuth = true;
+    });
     try {
-      await widget._authService?.signIn();
+      await auth.login(context);
+      if (!mounted) return;
+      setState(() {
+        _isSignedIn = true;
+        _checkingAuth = false;
+      });
+      _fetchBanners();
+      _fetchTodoBanners();
     } catch (e) {
-      if (mounted) setState(() => _authError = e.toString());
+      if (!mounted) return;
+      setState(() {
+        _authError = e.toString();
+        _checkingAuth = false;
+      });
     }
   }
 
-  Future<void> _signOut() => widget._authService?.signOut() ?? Future.value();
+  Future<void> _signOut() async {
+    await widget._authService?.logout();
+    await _cache.clearTodoBanners();
+    if (!mounted) return;
+    setState(() {
+      _isSignedIn = false;
+      _todoBanners = [];
+    });
+    _fetchBanners();
+    _fetchTodoBanners();
+  }
+
+  // ── Local data ─────────────────────────────────────────────────────────
+
+  Future<void> _loadLocalData() async {
+    final types = await widget._storageService.loadListTypes();
+    if (!mounted) return;
+    setState(() => _listTypes = types);
+    if (_tabController.index == 1) _fetchTodoBanners();
+  }
 
   // ── Nearby fetching ────────────────────────────────────────────────────
 
@@ -203,14 +198,35 @@ class _BannerListPageState extends State<BannerListPage>
     }
   }
 
+  Future<String?> _getToken() => widget._authService?.getAccessToken() ?? Future.value(null);
+
+  /// Merges server-returned listTypes into local storage and state.
+  Future<void> _mergeListTypes(List<BannerItem> banners) async {
+    final serverTypes = {
+      for (final b in banners)
+        if (b.listType != null && b.listType != 'none') b.id: b.listType!,
+    };
+    if (serverTypes.isEmpty) return;
+    final merged = Map<String, String>.of(_listTypes)..addAll(serverTypes);
+    if (merged.length == _listTypes.length &&
+        merged.entries.every((e) => _listTypes[e.key] == e.value)) {
+      return;
+    }
+    setState(() => _listTypes = merged);
+    await widget._storageService.saveListTypes(merged);
+  }
+
   Future<void> _fetchBanners() async {
-    setState(() { _loading = true; _error = null; _hasMore = true; });
+    setState(() {
+      _loading = true;
+      _error = null;
+      _hasMore = true;
+    });
     try {
       double lat, lng;
       if (_customCenter != null) {
         lat = _customCenter!.latitude;
         lng = _customCenter!.longitude;
-        // Get GPS in background for distance display
         widget._locationService.getCurrentPosition().then((pos) {
           if (mounted) setState(() => _position = pos);
         }).catchError((_) {});
@@ -222,34 +238,45 @@ class _BannerListPageState extends State<BannerListPage>
       }
       _fetchLat = lat;
       _fetchLng = lng;
+      final token = _isSignedIn ? await _getToken() : null;
       final banners = await widget._bannerService.fetchNearby(
         latitude: lat,
         longitude: lng,
+        accessToken: token,
       );
       setState(() {
         _banners = banners;
         _loading = false;
         _hasMore = banners.length >= BannerService.pageSize;
       });
+      if (token != null) unawaited(_mergeListTypes(banners));
     } catch (e) {
-      setState(() { _error = e.toString(); _loading = false; });
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
     }
   }
 
   Future<void> _fetchMoreBanners() async {
-    if (_loadingMore || !_hasMore || _fetchLat == null || _fetchLng == null) return;
+    if (_loadingMore || !_hasMore || _fetchLat == null || _fetchLng == null) {
+      return;
+    }
     setState(() => _loadingMore = true);
     try {
+      final token = _isSignedIn ? await _getToken() : null;
       final more = await widget._bannerService.fetchNearby(
         latitude: _fetchLat!,
         longitude: _fetchLng!,
         offset: _banners.length,
+        accessToken: token,
       );
       setState(() {
         _banners = [..._banners, ...more];
         _loadingMore = false;
         _hasMore = more.length >= BannerService.pageSize;
       });
+      if (token != null) unawaited(_mergeListTypes(more));
     } catch (_) {
       setState(() => _loadingMore = false);
     }
@@ -259,14 +286,80 @@ class _BannerListPageState extends State<BannerListPage>
 
   Future<void> _fetchTodoBanners() async {
     if (_loadingTodo) return;
+
+    // When signed in: fetch authoritative list from Bannergress API.
+    if (_isSignedIn) {
+      await _fetchTodosFromApi();
+      return;
+    }
+
+    // Not signed in: derive from local list types.
+    await _fetchTodosFromLocalTypes();
+  }
+
+  Future<void> _fetchTodosFromApi() async {
+    final auth = widget._authService;
+    if (auth == null) return;
+
+    // Show cached banners immediately
+    final cached = await _cache.loadTodoBanners();
+    if (cached != null && mounted) {
+      setState(() => _todoBanners = cached);
+    }
+
+    setState(() => _loadingTodo = true);
+
+    try {
+      String? token = await auth.getAccessToken();
+      if (token == null) {
+        setState(() => _loadingTodo = false);
+        return;
+      }
+
+      List<BannerItem> todos;
+      try {
+        todos = await widget._bannerService.fetchTodos(accessToken: token);
+      } on SessionExpiredException {
+        // Token expired — try refresh once
+        token = await auth.refreshIfNeeded();
+        if (token == null) {
+          if (mounted) setState(() { _isSignedIn = false; _loadingTodo = false; });
+          return;
+        }
+        todos = await widget._bannerService.fetchTodos(accessToken: token);
+      }
+
+      // Sort by distance if GPS available
+      if (_position != null) {
+        todos.sort((a, b) {
+          final da = _distanceMeters(a);
+          final db = _distanceMeters(b);
+          if (da == null && db == null) return 0;
+          if (da == null) return 1;
+          if (db == null) return -1;
+          return da.compareTo(db);
+        });
+      }
+
+      unawaited(_cache.saveTodoBanners(todos));
+      if (mounted) setState(() { _todoBanners = todos; _loadingTodo = false; });
+    } catch (e) {
+      if (mounted) setState(() => _loadingTodo = false);
+    }
+  }
+
+  Future<void> _fetchTodosFromLocalTypes() async {
     final todoIds = _listTypes.entries
         .where((e) => e.value == 'todo')
         .map((e) => e.key)
         .toList();
 
     if (todoIds.isEmpty) {
-      await _cache.saveTodoBanners([]);
-      setState(() { _todoBanners = []; _loadingTodo = false; });
+      await _cache.clearTodoBanners();
+      setState(() {
+        _todoBanners = [];
+        _loadingTodo = false;
+      });
       return;
     }
 
@@ -278,7 +371,6 @@ class _BannerListPageState extends State<BannerListPage>
 
     setState(() => _loadingTodo = true);
 
-    // Fetch all todo banners in parallel for speed.
     final fetched = <BannerItem>[];
     await Future.wait(
       todoIds.map((id) async {
@@ -290,7 +382,6 @@ class _BannerListPageState extends State<BannerListPage>
       }),
     );
 
-    // Sort by distance to current GPS position
     if (_position != null) {
       fetched.sort((a, b) {
         final da = _distanceMeters(a);
@@ -303,7 +394,12 @@ class _BannerListPageState extends State<BannerListPage>
     }
 
     unawaited(_cache.saveTodoBanners(fetched));
-    if (mounted) setState(() { _todoBanners = fetched; _loadingTodo = false; });
+    if (mounted) {
+      setState(() {
+        _todoBanners = fetched;
+        _loadingTodo = false;
+      });
+    }
   }
 
   // ── Location picker ────────────────────────────────────────────────────
@@ -315,7 +411,8 @@ class _BannerListPageState extends State<BannerListPage>
     }
     final result = await Navigator.push<LatLng>(
       context,
-      MaterialPageRoute(builder: (_) => LocationPickerPage(initialCenter: initial)),
+      MaterialPageRoute(
+          builder: (_) => LocationPickerPage(initialCenter: initial)),
     );
     if (result != null) {
       setState(() => _customCenter = result);
@@ -332,7 +429,6 @@ class _BannerListPageState extends State<BannerListPage>
 
   @override
   Widget build(BuildContext context) {
-    // PopScope ensures _listTypes is returned even on system back-gesture.
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
@@ -356,7 +452,9 @@ class _BannerListPageState extends State<BannerListPage>
                 widget.isDarkMode ? Icons.light_mode : Icons.dark_mode,
               ),
               onPressed: widget.onToggleTheme,
-              tooltip: widget.isDarkMode ? 'Switch to light mode' : 'Switch to dark mode',
+              tooltip: widget.isDarkMode
+                  ? 'Switch to light mode'
+                  : 'Switch to dark mode',
             ),
             IconButton(
               icon: const Icon(Icons.refresh),
@@ -383,11 +481,13 @@ class _BannerListPageState extends State<BannerListPage>
               tabs: [
                 Tab(
                   icon: const Icon(Icons.place_outlined),
-                  text: 'Nearby${_banners.isNotEmpty ? ' (${_banners.length})' : ''}',
+                  text:
+                      'Nearby${_banners.isNotEmpty ? ' (${_banners.length})' : ''}',
                 ),
                 Tab(
                   icon: const Icon(Icons.bookmark_outline),
-                  text: 'To-do${_todoBanners.isNotEmpty ? ' (${_todoBanners.length})' : ''}',
+                  text:
+                      'To-do${_todoBanners.isNotEmpty ? ' (${_todoBanners.length})' : ''}',
                 ),
               ],
             ),
@@ -407,40 +507,32 @@ class _BannerListPageState extends State<BannerListPage>
   }
 
   Widget _buildAccountButton() {
+    if (_checkingAuth) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16),
+        child: SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+        ),
+      );
+    }
     if (!_isSignedIn) {
       return IconButton(
         icon: const Icon(Icons.account_circle_outlined),
-        tooltip: 'Sign in with Google',
+        tooltip: 'Sign in to Bannergress',
         onPressed: _signIn,
       );
     }
     return PopupMenuButton<String>(
-      tooltip: _user!.displayName ?? _user!.email,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: CircleAvatar(
-          radius: 16,
-          backgroundColor: Theme.of(context).colorScheme.primary,
-          foregroundImage: _user!.photoUrl != null
-              ? NetworkImage(_user!.photoUrl!)
-              : null,
-          child: Text(
-            (_user!.displayName ?? _user!.email)[0].toUpperCase(),
-            style: const TextStyle(color: Colors.white, fontSize: 14),
-          ),
-        ),
-      ),
+      tooltip: 'Bannergress account',
+      icon: const Icon(Icons.account_circle, color: Colors.white),
       itemBuilder: (_) => [
-        PopupMenuItem(
+        const PopupMenuItem(
           enabled: false,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(_user!.displayName ?? '',
-                  style: const TextStyle(fontWeight: FontWeight.w600)),
-              Text(_user!.email,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey)),
-            ],
+          child: Text(
+            'Signed in to Bannergress',
+            style: TextStyle(fontWeight: FontWeight.w600),
           ),
         ),
         const PopupMenuDivider(),
@@ -458,21 +550,17 @@ class _BannerListPageState extends State<BannerListPage>
     return Column(
       children: [
         if (widget._authService != null && !_isSignedIn)
-          _AuthDebugPanel(
+          _BannergressSignInBanner(
             authError: _authError,
-            position: _position,
             onSignIn: _signIn,
           ),
-        if (_isSignedIn && _banners.isNotEmpty)
+        if (_banners.isNotEmpty)
           _FilterBar(
             hiddenFilters: _hiddenFilters,
             listTypes: _listTypes,
             banners: _banners,
             onChanged: (h) => setState(() => _hiddenFilters = h),
           ),
-        // Drive debug card is only useful during development.
-        if (kDebugMode && _isSignedIn && widget._driveService != null)
-          _DriveDebugCard(driveService: widget._driveService!),
         Expanded(child: _buildNearbyContent()),
       ],
     );
@@ -490,7 +578,8 @@ class _BannerListPageState extends State<BannerListPage>
             children: [
               const Icon(Icons.error_outline, size: 48, color: Colors.red),
               const SizedBox(height: 12),
-              Text(_error!, textAlign: TextAlign.center,
+              Text(_error!,
+                  textAlign: TextAlign.center,
                   style: const TextStyle(fontSize: 16)),
               const SizedBox(height: 16),
               ElevatedButton.icon(
@@ -505,9 +594,12 @@ class _BannerListPageState extends State<BannerListPage>
     }
 
     final visible = _filteredBanners;
-    if (_banners.isEmpty) return const Center(child: Text('No banners found nearby.'));
+    if (_banners.isEmpty) {
+      return const Center(child: Text('No banners found nearby.'));
+    }
     if (visible.isEmpty) {
-      return const Center(child: Text('No banners match the selected filter.'));
+      return const Center(
+          child: Text('No banners match the selected filter.'));
     }
 
     return ListView.separated(
@@ -529,70 +621,62 @@ class _BannerListPageState extends State<BannerListPage>
   // ── To-do tab ──────────────────────────────────────────────────────────
 
   Widget _buildTodoTab() {
-    if (!_isSignedIn) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.lock_outline, size: 48, color: Colors.grey),
-              SizedBox(height: 12),
-              Text(
-                'Sign in with Google to see\nyour to-do banners.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
     if (_loadingTodo && _todoBanners.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
 
     if (!_loadingTodo && _todoBanners.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(32),
+          padding: const EdgeInsets.all(32),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.bookmark_border, size: 48, color: Colors.grey),
-              SizedBox(height: 12),
+              const Icon(Icons.bookmark_border, size: 48, color: Colors.grey),
+              const SizedBox(height: 12),
               Text(
-                'No to-do banners yet.\nOpen a banner and mark it as "To-do".',
+                _isSignedIn
+                    ? 'No to-do banners on Bannergress.'
+                    : 'No to-do banners yet.\nOpen a banner and mark it as "To-do".',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey),
+                style: const TextStyle(color: Colors.grey),
               ),
+              if (!_isSignedIn && widget._authService != null) ...[
+                const SizedBox(height: 16),
+                TextButton.icon(
+                  onPressed: _signIn,
+                  icon: const Icon(Icons.login),
+                  label: const Text('Sign in to sync from Bannergress'),
+                ),
+              ],
             ],
           ),
         ),
       );
     }
 
-    return ListView.separated(
-      itemCount: _todoBanners.length + (_loadingTodo ? 1 : 0),
-      separatorBuilder: (_, _) => const Divider(height: 1),
-      itemBuilder: (_, i) {
-        if (i == _todoBanners.length) {
-          return const Padding(
-            padding: EdgeInsets.all(16),
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
-        return _buildBannerTile(_todoBanners[i], showListBadge: false);
-      },
+    return RefreshIndicator(
+      onRefresh: _fetchTodoBanners,
+      child: ListView.separated(
+        itemCount: _todoBanners.length + (_loadingTodo ? 1 : 0),
+        separatorBuilder: (_, _) => const Divider(height: 1),
+        itemBuilder: (_, i) {
+          if (i == _todoBanners.length) {
+            return const Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
+          return _buildBannerTile(_todoBanners[i], showListBadge: false);
+        },
+      ),
     );
   }
 
   // ── Shared banner tile ─────────────────────────────────────────────────
 
   Widget _buildBannerTile(BannerItem banner, {bool showListBadge = true}) {
-    final listType =
-        showListBadge && _isSignedIn ? _listTypes[banner.id] : null;
+    final listType = showListBadge ? _listTypes[banner.id] : null;
     final distance = _formatDistance(banner);
 
     final subtitleParts = [
@@ -610,15 +694,17 @@ class _BannerListPageState extends State<BannerListPage>
             builder: (_) => BannerDetailPage(
               banner: banner,
               bannerService: widget._bannerService,
-              driveService: _isSignedIn ? widget._driveService : null,
+              storageService: widget._storageService,
               listTypes: _listTypes,
             ),
           ),
         );
         if (updated != null) {
           setState(() => _listTypes = updated);
-          // Invalidate todo list if list types changed
-          if (_todoBanners.isNotEmpty) _fetchTodoBanners();
+          await widget._storageService.saveListTypes(updated);
+          if (_todoBanners.isNotEmpty || _tabController.index == 1) {
+            _fetchTodoBanners();
+          }
         }
       },
       leading: Hero(
@@ -642,8 +728,7 @@ class _BannerListPageState extends State<BannerListPage>
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (subtitleParts.isNotEmpty)
-                  Text(subtitleParts.join('  ·  ')),
+                if (subtitleParts.isNotEmpty) Text(subtitleParts.join('  ·  ')),
                 if (banner.warning != null)
                   Row(
                     children: [
@@ -688,31 +773,21 @@ class _BannerListPageState extends State<BannerListPage>
   }
 }
 
-// ─── Auth debug panel ────────────────────────────────────────────────────────
+// ─── Bannergress sign-in banner ───────────────────────────────────────────────
 
-class _AuthDebugPanel extends StatelessWidget {
-  const _AuthDebugPanel({
+class _BannergressSignInBanner extends StatelessWidget {
+  const _BannergressSignInBanner({
     required this.authError,
-    required this.position,
     required this.onSignIn,
   });
 
   final String? authError;
-  final Position? position;
   final VoidCallback onSignIn;
-
-  bool get _configured =>
-      googleOAuthClientId !=
-      'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com';
 
   @override
   Widget build(BuildContext context) {
     final hasError = authError != null;
-    final color = hasError
-        ? Colors.red
-        : _configured
-            ? Colors.blue
-            : Colors.orange;
+    final color = hasError ? Colors.red : Colors.blue;
 
     return Card(
       margin: const EdgeInsets.fromLTRB(8, 8, 8, 0),
@@ -722,109 +797,34 @@ class _AuthDebugPanel extends StatelessWidget {
         side: BorderSide(color: color.withValues(alpha: 0.4)),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        child: Row(
           children: [
-            Row(
-              children: [
-                Icon(
-                  hasError
-                      ? Icons.error_outline
-                      : _configured
-                          ? Icons.lock_open_outlined
-                          : Icons.warning_amber_outlined,
-                  size: 15,
-                  color: color,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  'Auth — not signed in',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: color,
-                  ),
-                ),
-              ],
+            Icon(
+              hasError ? Icons.error_outline : Icons.account_circle_outlined,
+              size: 16,
+              color: color,
             ),
-            const SizedBox(height: 6),
-            _Row('Client ID',
-                _configured
-                    ? '${googleOAuthClientId.substring(0, 20)}…'
-                    : '⚠ NOT CONFIGURED — see SETUP.md'),
-            _Row('Drive scope', 'drive.file'),
-            if (position != null)
-              _Row('Location',
-                  '${position!.latitude.toStringAsFixed(4)}, '
-                  '${position!.longitude.toStringAsFixed(4)}'),
-            if (hasError) ...[
-              const SizedBox(height: 4),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade50,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  authError!,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Colors.red,
-                    fontFamily: 'monospace',
-                  ),
-                ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                hasError
+                    ? authError!
+                    : 'Sign in to sync your To-do list from Bannergress',
+                style: TextStyle(fontSize: 12, color: color),
               ),
-            ],
-            if (_configured)
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  style: TextButton.styleFrom(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  onPressed: onSignIn,
-                  icon: const Icon(Icons.login, size: 15),
-                  label: const Text('Sign in with Google',
-                      style: TextStyle(fontSize: 12)),
-                ),
+            ),
+            TextButton(
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
+              onPressed: onSignIn,
+              child: Text('Sign in', style: TextStyle(fontSize: 12, color: color)),
+            ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _Row extends StatelessWidget {
-  const _Row(this.label, this.value);
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 1),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 76,
-            child: Text('$label:',
-                style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey)),
-          ),
-          Expanded(
-            child: Text(value,
-                style: const TextStyle(fontSize: 11, fontFamily: 'monospace')),
-          ),
-        ],
       ),
     );
   }
@@ -871,14 +871,13 @@ class _FilterBar extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         child: Row(
           children: [
-            // Reset button — only visible when something is hidden
             if (hiddenFilters.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(right: 6),
                 child: ActionChip(
                   avatar: const Icon(Icons.visibility_outlined, size: 15),
-                  label: const Text('Show all',
-                      style: TextStyle(fontSize: 12)),
+                  label:
+                      const Text('Show all', style: TextStyle(fontSize: 12)),
                   onPressed: () => onChanged({}),
                 ),
               ),
@@ -891,8 +890,8 @@ class _FilterBar extends StatelessWidget {
                 padding: const EdgeInsets.only(right: 6),
                 child: FilterChip(
                   selected: visible,
-                  avatar: Icon(icon, size: 15,
-                      color: visible ? color : Colors.grey),
+                  avatar: Icon(icon,
+                      size: 15, color: visible ? color : Colors.grey),
                   label: Text('$label  $count',
                       style: const TextStyle(fontSize: 12)),
                   onSelected: (_) {
@@ -913,52 +912,6 @@ class _FilterBar extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-// ─── Drive debug card ────────────────────────────────────────────────────────
-
-class _DriveDebugCard extends StatelessWidget {
-  const _DriveDebugCard({required this.driveService});
-  final DriveService driveService;
-
-  @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<String>(
-      valueListenable: driveService.debugLog,
-      builder: (context, log, _) {
-        final isError = log.contains('error') || log.contains('Error');
-        return Card(
-          margin: const EdgeInsets.fromLTRB(8, 6, 8, 0),
-          color: isError ? Colors.red.shade50 : Colors.green.shade50,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-            side: BorderSide(
-              color: isError ? Colors.red.shade200 : Colors.green.shade200,
-            ),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(10),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(
-                  isError ? Icons.error_outline : Icons.cloud_outlined,
-                  size: 15,
-                  color: isError ? Colors.red : Colors.green.shade700,
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(log,
-                      style: const TextStyle(
-                          fontSize: 11, fontFamily: 'monospace')),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 }

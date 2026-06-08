@@ -19,6 +19,8 @@ class BannerItem {
   final String? plannedOfflineDate;
   final String? eventStartDate;
   final String? eventEndDate;
+  /// Bannergress server-side list type returned when fetching with auth token.
+  final String? listType;
   // Ordered by position key; only populated from GET /bnrs/{id}
   final List<MissionItem> missions;
 
@@ -41,6 +43,7 @@ class BannerItem {
     this.plannedOfflineDate,
     this.eventStartDate,
     this.eventEndDate,
+    this.listType,
     this.missions = const [],
   });
 
@@ -65,6 +68,7 @@ class BannerItem {
         plannedOfflineDate: json['plannedOfflineDate'] as String?,
         eventStartDate: json['eventStartDate'] as String?,
         eventEndDate: json['eventEndDate'] as String?,
+        listType: json['listType'] as String?,
         missions: _parseMissions(json['missions']),
       );
 

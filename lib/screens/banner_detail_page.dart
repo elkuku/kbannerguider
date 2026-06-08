@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
@@ -12,7 +11,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../models/banner_item.dart';
 import '../models/mission_item.dart';
 import '../services/banner_service.dart';
-import '../services/drive_service.dart';
+import '../services/local_storage_service.dart';
 import '../utils/format.dart';
 import '../widgets/full_image_dialog.dart';
 
@@ -43,13 +42,13 @@ class BannerDetailPage extends StatefulWidget {
     super.key,
     required this.banner,
     required this.bannerService,
-    this.driveService,
+    this.storageService,
     this.listTypes = const {},
   });
 
   final BannerItem banner;
   final BannerService bannerService;
-  final DriveService? driveService;
+  final LocalStorageService? storageService;
   final Map<String, String> listTypes;
 
   @override
@@ -63,8 +62,6 @@ class _BannerDetailPageState extends State<BannerDetailPage>
   late Map<String, String> _listTypes;
   late final TabController _tabController;
 
-  final List<({DateTime time, String msg})> _debugEntries = [];
-
   // ── Guider state ──────────────────────────────────────────────────────────
   // 0 = ready to start first mission; missions.length = all done.
   int _currentMissionIndex = 0;
@@ -76,23 +73,12 @@ class _BannerDetailPageState extends State<BannerDetailPage>
     _listTypes = Map.of(widget.listTypes);
     _tabController = TabController(length: 2, vsync: this);
     _loadDetail();
-    widget.driveService?.debugLog.addListener(_onDriveLog);
   }
 
   @override
   void dispose() {
-    widget.driveService?.debugLog.removeListener(_onDriveLog);
     _tabController.dispose();
     super.dispose();
-  }
-
-  void _onDriveLog() {
-    if (!mounted) return;
-    final msg = widget.driveService!.debugLog.value;
-    setState(() {
-      _debugEntries.add((time: DateTime.now(), msg: msg));
-      if (_debugEntries.length > 60) _debugEntries.removeAt(0);
-    });
   }
 
   Future<void> _loadDetail() async {
@@ -100,7 +86,7 @@ class _BannerDetailPageState extends State<BannerDetailPage>
     try {
       final full = await widget.bannerService.fetchById(_banner.id);
       if (mounted) setState(() => _banner = full);
-      if (widget.driveService != null && full.missions.isNotEmpty) {
+      if (widget.storageService != null && full.missions.isNotEmpty) {
         await _loadGuiderProgress(full);
       }
     } catch (_) {
@@ -112,7 +98,7 @@ class _BannerDetailPageState extends State<BannerDetailPage>
 
   Future<void> _loadGuiderProgress(BannerItem banner) async {
     final progress =
-        await widget.driveService!.loadGuiderProgress(banner.id);
+        await widget.storageService!.loadGuiderProgress(banner.id);
     if (progress == null || !mounted) return;
     // Prefer matching by missionId in case mission list order changed.
     var index = progress.index;
@@ -126,11 +112,11 @@ class _BannerDetailPageState extends State<BannerDetailPage>
   Future<void> _setGuiderIndex(int index) async {
     final clamped = index.clamp(0, _banner.missions.length);
     setState(() => _currentMissionIndex = clamped);
-    if (widget.driveService == null || _banner.missions.isEmpty) return;
+    if (widget.storageService == null || _banner.missions.isEmpty) return;
     final missionId = clamped < _banner.missions.length
         ? _banner.missions[clamped].id
         : _banner.missions.last.id;
-    await widget.driveService!
+    await widget.storageService!
         .saveGuiderProgress(_banner.id, clamped, missionId);
   }
 
@@ -145,12 +131,6 @@ class _BannerDetailPageState extends State<BannerDetailPage>
     final old = _listTypes[_banner.id] ?? 'none';
     if (old == type) return;
 
-    setState(() {
-      _debugEntries.add((
-        time: DateTime.now(),
-        msg: '\u25b6 setListType: $old \u2192 $type  [${_banner.id}]',
-      ));
-    });
     final updated = Map<String, String>.of(_listTypes);
     if (type == 'none') {
       updated.remove(_banner.id);
@@ -158,7 +138,7 @@ class _BannerDetailPageState extends State<BannerDetailPage>
       updated[_banner.id] = type;
     }
     setState(() => _listTypes = updated);
-    await widget.driveService?.saveListTypes(updated);
+    await widget.storageService?.saveListTypes(updated);
   }
 
   @override
@@ -290,7 +270,7 @@ class _BannerDetailPageState extends State<BannerDetailPage>
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ],
-                    if (widget.driveService != null) ...[
+                    ...[
                       const SizedBox(height: 16),
                       const Divider(),
                       const SizedBox(height: 4),
@@ -298,10 +278,6 @@ class _BannerDetailPageState extends State<BannerDetailPage>
                         current: _listTypes[_banner.id] ?? 'none',
                         onChanged: _setListType,
                       ),
-                      const SizedBox(height: 8),
-                      // Debug panel is only useful during development.
-                      if (kDebugMode)
-                        _DebugPanel(entries: _debugEntries),
                     ],
                     const SizedBox(height: 16),
                     const Divider(),
@@ -1176,99 +1152,6 @@ class _ListTypeSelector extends StatelessWidget {
           ),
         );
       }).toList(),
-    );
-  }
-}
-
-// ─── Debug panel ─────────────────────────────────────────────────────────────
-
-class _DebugPanel extends StatelessWidget {
-  const _DebugPanel({required this.entries});
-
-  final List<({DateTime time, String msg})> entries;
-
-  @override
-  Widget build(BuildContext context) {
-    return Theme(
-      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-      child: ExpansionTile(
-        tilePadding: EdgeInsets.zero,
-        title: Row(
-          children: [
-            const Icon(Icons.bug_report_outlined, size: 14, color: Colors.grey),
-            const SizedBox(width: 4),
-            Text(
-              'Drive debug log (${entries.length})',
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-          ],
-        ),
-        children: [
-          Container(
-            height: 180,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: const Color(0xFF1A1A2E),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            padding: const EdgeInsets.all(8),
-            child: entries.isEmpty
-                ? const Center(
-                    child: Text(
-                      'No events yet — change the list type to trigger.',
-                      style: TextStyle(color: Colors.grey, fontSize: 11),
-                      textAlign: TextAlign.center,
-                    ),
-                  )
-                : ListView.builder(
-                    reverse: true,
-                    itemCount: entries.length,
-                    itemBuilder: (_, i) {
-                      final e = entries[entries.length - 1 - i];
-                      final t = e.time;
-                      final ts =
-                          '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}:${t.second.toString().padLeft(2, '0')}.${t.millisecond.toString().padLeft(3, '0')}';
-                      final Color msgColor;
-                      if (e.msg.contains('rror')) {
-                        msgColor = const Color(0xFFFF6B6B);
-                      } else if (e.msg.startsWith('▶')) {
-                        msgColor = const Color(0xFF4FC3F7);
-                      } else if (e.msg.contains('successful') ||
-                          e.msg.contains('Created file')) {
-                        msgColor = const Color(0xFF81C784);
-                      } else {
-                        msgColor = const Color(0xFFB0BEC5);
-                      }
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 1.5),
-                        child: RichText(
-                          text: TextSpan(
-                            children: [
-                              TextSpan(
-                                text: '$ts  ',
-                                style: const TextStyle(
-                                  color: Color(0xFF546E7A),
-                                  fontSize: 10,
-                                  fontFamily: 'monospace',
-                                ),
-                              ),
-                              TextSpan(
-                                text: e.msg,
-                                style: TextStyle(
-                                  color: msgColor,
-                                  fontSize: 10,
-                                  fontFamily: 'monospace',
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-          ),
-        ],
-      ),
     );
   }
 }

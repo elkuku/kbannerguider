@@ -3,19 +3,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'screens/banner_list_page.dart';
 import 'services/auth_service.dart';
-import 'services/drive_service.dart';
+import 'services/local_storage_service.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  final authService = AuthService();
-  await authService.initialize();
-  runApp(KBannerGuiderApp(authService: authService));
+void main() {
+  runApp(const KBannerGuiderApp());
 }
 
 class KBannerGuiderApp extends StatefulWidget {
-  const KBannerGuiderApp({super.key, required this.authService});
-
-  final AuthService authService;
+  const KBannerGuiderApp({super.key});
 
   @override
   State<KBannerGuiderApp> createState() => _KBannerGuiderAppState();
@@ -25,6 +20,9 @@ class _KBannerGuiderAppState extends State<KBannerGuiderApp> {
   static const _prefKey = 'dark_mode';
 
   ThemeMode _themeMode = ThemeMode.dark;
+
+  final _authService = AuthService();
+  final _storageService = LocalStorageService();
 
   @override
   void initState() {
@@ -70,7 +68,8 @@ class _KBannerGuiderAppState extends State<KBannerGuiderApp> {
               inversePrimary: Color(0xFFE0E0E0),
             ),
       appBarTheme: AppBarTheme(
-        backgroundColor: isDark ? const Color(0xFF212121) : const Color(0xFF424242),
+        backgroundColor:
+            isDark ? const Color(0xFF212121) : const Color(0xFF424242),
         foregroundColor: Colors.white,
         titleTextStyle: const TextStyle(
           color: Colors.white,
@@ -80,7 +79,8 @@ class _KBannerGuiderAppState extends State<KBannerGuiderApp> {
       ),
       tabBarTheme: TabBarThemeData(
         labelColor: isDark ? Colors.white : Colors.black87,
-        unselectedLabelColor: isDark ? const Color(0xFF9E9E9E) : Colors.black45,
+        unselectedLabelColor:
+            isDark ? const Color(0xFF9E9E9E) : Colors.black45,
         indicatorColor: isDark ? Colors.white : Colors.black87,
       ),
     );
@@ -94,8 +94,8 @@ class _KBannerGuiderAppState extends State<KBannerGuiderApp> {
       darkTheme: _buildTheme(Brightness.dark),
       themeMode: _themeMode,
       home: BannerListPage(
-        authService: widget.authService,
-        driveService: DriveService(),
+        authService: _authService,
+        storageService: _storageService,
         onToggleTheme: _toggleTheme,
         isDarkMode: _themeMode == ThemeMode.dark,
       ),
