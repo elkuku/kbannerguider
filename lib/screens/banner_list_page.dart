@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
@@ -130,8 +132,10 @@ class _BannerListPageState extends State<BannerListPage>
     final loggedIn = await auth.isLoggedIn();
     if (!mounted) return;
     setState(() => _isSignedIn = loggedIn);
-    if (loggedIn && _tabController.index == 1) {
-      _fetchTodoBanners();
+    if (loggedIn) {
+      final token = await _getToken();
+      if (token != null) unawaited(_syncListStates(token));
+      if (_tabController.index == 1) _fetchTodoBanners();
     }
   }
 
@@ -151,6 +155,8 @@ class _BannerListPageState extends State<BannerListPage>
       });
       _fetchBanners();
       _fetchTodoBanners();
+      final token = await _getToken();
+      if (token != null) unawaited(_syncListStates(token));
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -185,6 +191,29 @@ class _BannerListPageState extends State<BannerListPage>
   }
 
   Future<String?> _getToken() => widget._authService?.getAccessToken() ?? Future.value(null);
+
+  Future<void> _syncListStates(String token) async {
+    try {
+      final results = await Future.wait([
+        widget._bannerService.fetchByListType(listType: 'todo', accessToken: token),
+        widget._bannerService.fetchByListType(listType: 'done', accessToken: token),
+        widget._bannerService.fetchByListType(listType: 'blacklist', accessToken: token),
+      ]);
+      final synced = <String, String>{};
+      for (final (type, banners) in [
+        ('todo', results[0]),
+        ('done', results[1]),
+        ('blacklist', results[2]),
+      ]) {
+        for (final b in banners) {
+          synced[b.id] = type;
+        }
+      }
+      if (mounted && synced.isNotEmpty) {
+        setState(() => _listTypes = Map.of(_listTypes)..addAll(synced));
+      }
+    } catch (_) {}
+  }
 
   void _mergeListTypes(List<BannerItem> banners) {
     final serverTypes = {
@@ -288,14 +317,16 @@ class _BannerListPageState extends State<BannerListPage>
 
       List<BannerItem> todos;
       try {
-        todos = await widget._bannerService.fetchTodos(accessToken: token);
+        todos = await widget._bannerService
+            .fetchByListType(listType: 'todo', accessToken: token);
       } on SessionExpiredException {
         token = await auth.refreshIfNeeded();
         if (token == null) {
           if (mounted) setState(() { _isSignedIn = false; _loadingTodo = false; });
           return;
         }
-        todos = await widget._bannerService.fetchTodos(accessToken: token);
+        todos = await widget._bannerService
+            .fetchByListType(listType: 'todo', accessToken: token);
       }
 
       if (_position != null) {

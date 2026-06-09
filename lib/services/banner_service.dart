@@ -81,16 +81,17 @@ class BannerService {
     }
   }
 
-  /// Fetches the authenticated user's todo list from Bannergress.
+  /// Fetches the authenticated user's banners for a given list type.
   /// Throws [SessionExpiredException] if the token is no longer valid.
-  Future<List<BannerItem>> fetchTodos({
+  Future<List<BannerItem>> fetchByListType({
+    required String listType,
     required String accessToken,
     int offset = 0,
     int limit = 100,
   }) async {
     final uri =
         Uri.parse('https://api.bannergress.com/bnrs').replace(queryParameters: {
-      'listTypes': 'todo',
+      'listTypes': listType,
       'orderBy': 'listAdded',
       'orderDirection': 'DESC',
       'offset': offset.toString(),
@@ -101,10 +102,7 @@ class BannerService {
       'Authorization': 'Bearer $accessToken',
     });
 
-    if (response.statusCode == 401) {
-      throw SessionExpiredException();
-    }
-
+    if (response.statusCode == 401) throw SessionExpiredException();
     if (response.statusCode != 200) {
       throw Exception('Server returned ${response.statusCode}');
     }
