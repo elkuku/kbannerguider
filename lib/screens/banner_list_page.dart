@@ -8,7 +8,6 @@ import '../models/banner_item.dart';
 import '../version.dart';
 import '../services/auth_service.dart';
 import '../services/banner_service.dart';
-import '../services/local_storage_service.dart';
 import '../services/location_service.dart';
 import '../utils/format.dart';
 import 'banner_detail_page.dart';
@@ -23,18 +22,15 @@ class BannerListPage extends StatefulWidget {
     LocationService? locationService,
     BannerService? bannerService,
     AuthService? authService,
-    LocalStorageService? storageService,
     this.onToggleTheme,
     this.isDarkMode = true,
   })  : _locationService = locationService ?? const LocationService(),
         _bannerService = bannerService ?? BannerService(),
-        _authService = authService,
-        _storageService = storageService ?? LocalStorageService();
+        _authService = authService;
 
   final LocationService _locationService;
   final BannerService _bannerService;
   final AuthService? _authService;
-  final LocalStorageService _storageService;
   final VoidCallback? onToggleTheme;
   final bool isDarkMode;
 
@@ -638,7 +634,6 @@ class _BannerListPageState extends State<BannerListPage>
             builder: (_) => BannerDetailPage(
               banner: banner,
               bannerService: widget._bannerService,
-              storageService: widget._storageService,
               listTypes: _listTypes,
               getToken: _isSignedIn ? _getToken : null,
             ),

@@ -3,7 +3,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'screens/banner_list_page.dart';
 import 'services/auth_service.dart';
-import 'services/local_storage_service.dart';
 
 void main() {
   runApp(const KBannerGuiderApp());
@@ -22,7 +21,6 @@ class _KBannerGuiderAppState extends State<KBannerGuiderApp> {
   ThemeMode _themeMode = ThemeMode.dark;
 
   final _authService = AuthService();
-  final _storageService = LocalStorageService();
 
   @override
   void initState() {
@@ -95,7 +93,6 @@ class _KBannerGuiderAppState extends State<KBannerGuiderApp> {
       themeMode: _themeMode,
       home: BannerListPage(
         authService: _authService,
-        storageService: _storageService,
         onToggleTheme: _toggleTheme,
         isDarkMode: _themeMode == ThemeMode.dark,
       ),

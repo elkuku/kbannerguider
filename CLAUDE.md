@@ -2,7 +2,7 @@
 
 ## What this app does
 
-Flutter Android app for the Ingress game. It shows Bannergress banners nearby, lets you mark them as **To-do / Done / Skip**, and guides you step-by-step through each mission. User progress (list types, guider index) is synced to Google Drive so it survives reinstalls.
+Flutter Android app for the Ingress game. It shows Bannergress banners nearby, lets you mark them as **To-do / Done / Skip**, and guides you step-by-step through each mission. List types are synced via the Bannergress API. No local persistence beyond theme preference.
 
 ## Build & deploy
 
@@ -27,15 +27,13 @@ flutter test
 
 ```
 lib/
-  main.dart                       # App entry point; wires AuthService + LocalStorageService
+  main.dart                       # App entry point; wires AuthService
   models/
-    banner_item.dart              # BannerItem (title, location, missions[])
+    banner_item.dart              # BannerItem (title, location, missions[]); author getter
     mission_item.dart             # MissionItem, MissionStepItem, PoiItem, AgentItem
   services/
     auth_service.dart             # Bannergress Keycloak PKCE auth via WebView
-    banner_service.dart           # HTTP calls to api.bannergress.com (incl. fetchTodos)
-    cache_service.dart            # SharedPreferences cache (24 h TTL) for todoBanners
-    local_storage_service.dart    # Persistent storage for listTypes + guiderProgress
+    banner_service.dart           # HTTP calls to api.bannergress.com
     location_service.dart         # Geolocator wrapper
   screens/
     banner_list_page.dart     # Home: Nearby tab + To-do tab; filter bar; location bar
@@ -50,23 +48,23 @@ lib/
 ## Key data flows
 
 ### List types (To-do / Done / Skip / None)
-- Stored locally in SharedPreferences via `LocalStorageService` (permanent, no TTL)
+- **Bannergress is the sole source of truth** — nothing is persisted locally
+- On sign-in and session restore, `_syncListStates` fetches all three list types (todo/done/blacklist) in parallel and populates the in-memory `_listTypes` map
 - `BannerListPage` owns the authoritative `_listTypes` map and passes it down; `BannerDetailPage` returns the updated map via `Navigator.pop(context, _listTypes)`
-- `_setListType` in `BannerDetailPage` is idempotent (no-op if value unchanged)
+- `_setListType` in `BannerDetailPage` calls `POST /bnrs/{id}/settings` to persist changes and is idempotent (no-op if value unchanged)
+- When not signed in: list type selector, filter bar, and badges are hidden entirely; To-do tab shows only a sign-in prompt
+- On sign-out: `_listTypes`, `_todoBanners`, and `_hiddenFilters` are all cleared
 
 ### Bannergress auth (optional)
 - `AuthService` implements Keycloak PKCE flow via an in-app WebView dialog
 - Tokens stored in `flutter_secure_storage`; refresh token used to silently renew
 - When signed in, the To-do tab fetches from `GET /bnrs?listTypes=todo` with Bearer token
-- When not signed in, the To-do tab shows banners with locally-set `todo` type
-
-### Local persistence
-- `LocalStorageService` stores list types and guider progress in SharedPreferences
-- `CacheService` provides a 24 h SharedPreferences cache for todo banner details
+- Sign-in is optional — browsing works without it; list type features require it
 
 ### Guider (step-by-step mission navigator)
-- Current mission index + mission ID are saved locally under `local_guider_progress`
-- The map tab in `BannerDetailPage` shows a numbered marker for the current mission
+- Current mission index is in-memory state only (`_currentMissionIndex` in `BannerDetailPage`)
+- Resets to mission 1 each time the detail page is opened
+- The map tab shows a numbered marker for the current mission
 
 ## Bannergress API
 
@@ -74,23 +72,25 @@ Base URL: `https://api.bannergress.com`
 
 | Endpoint | Use |
 |---|---|
-| `GET /bnrs?orderBy=proximityStartPoint&proximityLatitude=…&proximityLongitude=…&limit=100` | Nearby banners list |
-| `GET /bnrs/{id}` | Banner detail with missions |
-| `GET /bnrs?listTypes=todo` | Authenticated user's todo list (requires Bearer token) |
+| `GET /bnrs?orderBy=proximityStartPoint&proximityLatitude=…&proximityLongitude=…&limit=25&attributes=…` | Nearby banners list |
+| `GET /bnrs/{id}` | Banner detail with full missions + steps |
+| `GET /bnrs?listTypes=todo&attributes=…` | Authenticated user's list by type (todo/done/blacklist) |
+| `POST /bnrs/{id}/settings` | Set list type `{"listType": "todo"}` (requires Bearer token) |
 
-Mission pictures and banner pictures use a relative path stored in `picture`; `pictureUrl` getter resolves them to absolute URLs.
+When authenticated, nearby and list-type fetches pass an explicit `attributes` parameter requesting `missions` and `warning` on top of the server's default fields — this is required because the server omits missions from list responses by default, and author names live inside mission data. `BannerItem.author` is a getter derived from `missions.first.author?.name`.
+
+Mission and banner pictures use a relative path stored in `picture`; `pictureUrl` getter resolves them to absolute URLs.
 
 ## Bannergress sign-in
 
 - `AuthService` uses the Keycloak endpoint at `login.bannergress.com` with PKCE
 - client_id: `bannergress-website`, redirect: `https://bannergress.com/`
-- Sign-in is optional — the app works fully without it (list types saved locally only)
+- Sign-in is optional — browsing works without it; list types and To-do tab require it
 
 ## Important conventions
 
 - `PopScope(canPop: false)` wraps every top-level screen so the system back-gesture still returns `_listTypes` via `Navigator.pop`
-- To-do banners are fetched in parallel with `Future.wait` (local mode) or a single API call (auth mode)
-- `unawaited()` is used intentionally for fire-and-forget cache saves
+- `unawaited()` is used intentionally for fire-and-forget operations (e.g. `_syncListStates`)
 
 ## Files worth knowing
 

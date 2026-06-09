@@ -11,7 +11,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../models/banner_item.dart';
 import '../models/mission_item.dart';
 import '../services/banner_service.dart';
-import '../services/local_storage_service.dart';
 import '../utils/format.dart';
 import '../widgets/full_image_dialog.dart';
 
@@ -42,14 +41,12 @@ class BannerDetailPage extends StatefulWidget {
     super.key,
     required this.banner,
     required this.bannerService,
-    this.storageService,
     this.listTypes = const {},
     this.getToken,
   });
 
   final BannerItem banner;
   final BannerService bannerService;
-  final LocalStorageService? storageService;
   final Map<String, String> listTypes;
   final Future<String?> Function()? getToken;
 
@@ -88,9 +85,6 @@ class _BannerDetailPageState extends State<BannerDetailPage>
     try {
       final full = await widget.bannerService.fetchById(_banner.id);
       if (mounted) setState(() => _banner = full);
-      if (widget.storageService != null && full.missions.isNotEmpty) {
-        await _loadGuiderProgress(full);
-      }
     } catch (_) {
       // keep the list data already shown
     } finally {
@@ -98,35 +92,15 @@ class _BannerDetailPageState extends State<BannerDetailPage>
     }
   }
 
-  Future<void> _loadGuiderProgress(BannerItem banner) async {
-    final progress =
-        await widget.storageService!.loadGuiderProgress(banner.id);
-    if (progress == null || !mounted) return;
-    // Prefer matching by missionId in case mission list order changed.
-    var index = progress.index;
-    final matchIdx =
-        banner.missions.indexWhere((m) => m.id == progress.missionId);
-    if (matchIdx >= 0) index = matchIdx;
-    setState(() =>
-        _currentMissionIndex = index.clamp(0, banner.missions.length));
-  }
-
-  Future<void> _setGuiderIndex(int index) async {
-    final clamped = index.clamp(0, _banner.missions.length);
-    setState(() => _currentMissionIndex = clamped);
-    if (widget.storageService == null || _banner.missions.isEmpty) return;
-    final missionId = clamped < _banner.missions.length
-        ? _banner.missions[clamped].id
-        : _banner.missions.last.id;
-    await widget.storageService!
-        .saveGuiderProgress(_banner.id, clamped, missionId);
+  void _setGuiderIndex(int index) {
+    setState(() => _currentMissionIndex = index.clamp(0, _banner.missions.length));
   }
 
   Future<void> _launchCurrentMission() async {
     if (_currentMissionIndex >= _banner.missions.length) return;
     final mission = _banner.missions[_currentMissionIndex];
     await _launch(mission.ingressUrl);
-    await _setGuiderIndex(_currentMissionIndex + 1);
+    _setGuiderIndex(_currentMissionIndex + 1);
   }
 
   Future<void> _setListType(String type) async {
