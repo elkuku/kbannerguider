@@ -311,6 +311,29 @@ class _BannerDetailPageState extends State<BannerDetailPage>
                         label: 'Planned offline',
                         value: _banner.plannedOfflineDate!,
                       ),
+                    const SizedBox(height: 8),
+                    InkWell(
+                      onTap: () => _launch(_banner.bannerUrl),
+                      borderRadius: BorderRadius.circular(4),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Row(
+                          children: [
+                            Icon(Icons.open_in_new,
+                                size: 20,
+                                color: Theme.of(context).colorScheme.primary),
+                            const SizedBox(width: 12),
+                            Text(
+                              'View on Bannergress',
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.primary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                     if (_banner.missions.isNotEmpty || _loadingDetail) ...[
                       const SizedBox(height: 16),
                       const Divider(),
