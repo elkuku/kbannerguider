@@ -4,20 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Persistent local storage for list types and guider progress.
 /// Replaces the Google Drive backend — all data lives in SharedPreferences.
 class LocalStorageService {
-  static const _listTypesKey = 'local_list_types';
   static const _guiderProgressKey = 'local_guider_progress';
-
-  Future<Map<String, String>> loadListTypes() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_listTypesKey);
-    if (raw == null) return {};
-    return (jsonDecode(raw) as Map<String, dynamic>).cast<String, String>();
-  }
-
-  Future<void> saveListTypes(Map<String, String> listTypes) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_listTypesKey, jsonEncode(listTypes));
-  }
 
   Future<({int index, String missionId})?> loadGuiderProgress(
       String bannerId) async {

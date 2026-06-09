@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
@@ -8,7 +6,6 @@ import '../models/banner_item.dart';
 import '../version.dart';
 import '../services/auth_service.dart';
 import '../services/banner_service.dart';
-import '../services/cache_service.dart';
 import '../services/local_storage_service.dart';
 import '../services/location_service.dart';
 import '../utils/format.dart';
@@ -59,7 +56,6 @@ class _BannerListPageState extends State<BannerListPage>
   // ── To-do tab state ───────────────────────────────────────────────────
   List<BannerItem> _todoBanners = [];
   bool _loadingTodo = false;
-  final _cache = CacheService();
 
   // ── Shared state ──────────────────────────────────────────────────────
   Position? _position;
@@ -107,7 +103,6 @@ class _BannerListPageState extends State<BannerListPage>
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(_onTabChanged);
     _nearbyScrollController.addListener(_onNearbyScroll);
-    _loadLocalData();
     _fetchBanners();
     _checkAuth();
   }
@@ -167,23 +162,14 @@ class _BannerListPageState extends State<BannerListPage>
 
   Future<void> _signOut() async {
     await widget._authService?.logout();
-    await _cache.clearTodoBanners();
     if (!mounted) return;
     setState(() {
       _isSignedIn = false;
       _todoBanners = [];
+      _listTypes = {};
+      _hiddenFilters = {};
     });
     _fetchBanners();
-    _fetchTodoBanners();
-  }
-
-  // ── Local data ─────────────────────────────────────────────────────────
-
-  Future<void> _loadLocalData() async {
-    final types = await widget._storageService.loadListTypes();
-    if (!mounted) return;
-    setState(() => _listTypes = types);
-    if (_tabController.index == 1) _fetchTodoBanners();
   }
 
   // ── Nearby fetching ────────────────────────────────────────────────────
@@ -200,8 +186,7 @@ class _BannerListPageState extends State<BannerListPage>
 
   Future<String?> _getToken() => widget._authService?.getAccessToken() ?? Future.value(null);
 
-  /// Merges server-returned listTypes into local storage and state.
-  Future<void> _mergeListTypes(List<BannerItem> banners) async {
+  void _mergeListTypes(List<BannerItem> banners) {
     final serverTypes = {
       for (final b in banners)
         if (b.listType != null && b.listType != 'none') b.id: b.listType!,
@@ -213,7 +198,6 @@ class _BannerListPageState extends State<BannerListPage>
       return;
     }
     setState(() => _listTypes = merged);
-    await widget._storageService.saveListTypes(merged);
   }
 
   Future<void> _fetchBanners() async {
@@ -249,7 +233,7 @@ class _BannerListPageState extends State<BannerListPage>
         _loading = false;
         _hasMore = banners.length >= BannerService.pageSize;
       });
-      if (token != null) unawaited(_mergeListTypes(banners));
+      if (token != null) _mergeListTypes(banners);
     } catch (e) {
       setState(() {
         _error = e.toString();
@@ -276,7 +260,7 @@ class _BannerListPageState extends State<BannerListPage>
         _loadingMore = false;
         _hasMore = more.length >= BannerService.pageSize;
       });
-      if (token != null) unawaited(_mergeListTypes(more));
+      if (token != null) _mergeListTypes(more);
     } catch (_) {
       setState(() => _loadingMore = false);
     }
@@ -285,27 +269,13 @@ class _BannerListPageState extends State<BannerListPage>
   // ── To-do fetching ─────────────────────────────────────────────────────
 
   Future<void> _fetchTodoBanners() async {
-    if (_loadingTodo) return;
-
-    // When signed in: fetch authoritative list from Bannergress API.
-    if (_isSignedIn) {
-      await _fetchTodosFromApi();
-      return;
-    }
-
-    // Not signed in: derive from local list types.
-    await _fetchTodosFromLocalTypes();
+    if (_loadingTodo || !_isSignedIn) return;
+    await _fetchTodosFromApi();
   }
 
   Future<void> _fetchTodosFromApi() async {
     final auth = widget._authService;
     if (auth == null) return;
-
-    // Show cached banners immediately
-    final cached = await _cache.loadTodoBanners();
-    if (cached != null && mounted) {
-      setState(() => _todoBanners = cached);
-    }
 
     setState(() => _loadingTodo = true);
 
@@ -320,7 +290,6 @@ class _BannerListPageState extends State<BannerListPage>
       try {
         todos = await widget._bannerService.fetchTodos(accessToken: token);
       } on SessionExpiredException {
-        // Token expired — try refresh once
         token = await auth.refreshIfNeeded();
         if (token == null) {
           if (mounted) setState(() { _isSignedIn = false; _loadingTodo = false; });
@@ -329,7 +298,6 @@ class _BannerListPageState extends State<BannerListPage>
         todos = await widget._bannerService.fetchTodos(accessToken: token);
       }
 
-      // Sort by distance if GPS available
       if (_position != null) {
         todos.sort((a, b) {
           final da = _distanceMeters(a);
@@ -341,64 +309,9 @@ class _BannerListPageState extends State<BannerListPage>
         });
       }
 
-      unawaited(_cache.saveTodoBanners(todos));
       if (mounted) setState(() { _todoBanners = todos; _loadingTodo = false; });
     } catch (e) {
       if (mounted) setState(() => _loadingTodo = false);
-    }
-  }
-
-  Future<void> _fetchTodosFromLocalTypes() async {
-    final todoIds = _listTypes.entries
-        .where((e) => e.value == 'todo')
-        .map((e) => e.key)
-        .toList();
-
-    if (todoIds.isEmpty) {
-      await _cache.clearTodoBanners();
-      setState(() {
-        _todoBanners = [];
-        _loadingTodo = false;
-      });
-      return;
-    }
-
-    // Show cached banners immediately while fetching fresh data
-    final cachedBanners = await _cache.loadTodoBanners();
-    if (cachedBanners != null && mounted) {
-      setState(() => _todoBanners = cachedBanners);
-    }
-
-    setState(() => _loadingTodo = true);
-
-    final fetched = <BannerItem>[];
-    await Future.wait(
-      todoIds.map((id) async {
-        try {
-          final banner = await widget._bannerService.fetchById(id);
-          fetched.add(banner);
-          if (mounted) setState(() => _todoBanners = List.of(fetched));
-        } catch (_) {}
-      }),
-    );
-
-    if (_position != null) {
-      fetched.sort((a, b) {
-        final da = _distanceMeters(a);
-        final db = _distanceMeters(b);
-        if (da == null && db == null) return 0;
-        if (da == null) return 1;
-        if (db == null) return -1;
-        return da.compareTo(db);
-      });
-    }
-
-    unawaited(_cache.saveTodoBanners(fetched));
-    if (mounted) {
-      setState(() {
-        _todoBanners = fetched;
-        _loadingTodo = false;
-      });
     }
   }
 
@@ -554,7 +467,7 @@ class _BannerListPageState extends State<BannerListPage>
             authError: _authError,
             onSignIn: _signIn,
           ),
-        if (_banners.isNotEmpty)
+        if (_isSignedIn && _banners.isNotEmpty)
           _FilterBar(
             hiddenFilters: _hiddenFilters,
             listTypes: _listTypes,
@@ -637,7 +550,7 @@ class _BannerListPageState extends State<BannerListPage>
               Text(
                 _isSignedIn
                     ? 'No to-do banners on Bannergress.'
-                    : 'No to-do banners yet.\nOpen a banner and mark it as "To-do".',
+                    : 'Sign in to see your Bannergress to-do list.',
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Colors.grey),
               ),
@@ -646,7 +559,7 @@ class _BannerListPageState extends State<BannerListPage>
                 TextButton.icon(
                   onPressed: _signIn,
                   icon: const Icon(Icons.login),
-                  label: const Text('Sign in to sync from Bannergress'),
+                  label: const Text('Sign in'),
                 ),
               ],
             ],
@@ -676,7 +589,7 @@ class _BannerListPageState extends State<BannerListPage>
   // ── Shared banner tile ─────────────────────────────────────────────────
 
   Widget _buildBannerTile(BannerItem banner, {bool showListBadge = true}) {
-    final listType = showListBadge ? _listTypes[banner.id] : null;
+    final listType = (showListBadge && _isSignedIn) ? _listTypes[banner.id] : null;
     final distance = _formatDistance(banner);
 
     final subtitleParts = [
@@ -696,12 +609,12 @@ class _BannerListPageState extends State<BannerListPage>
               bannerService: widget._bannerService,
               storageService: widget._storageService,
               listTypes: _listTypes,
+              getToken: _isSignedIn ? _getToken : null,
             ),
           ),
         );
-        if (updated != null) {
+        if (updated != null && _isSignedIn) {
           setState(() => _listTypes = updated);
-          await widget._storageService.saveListTypes(updated);
           if (_todoBanners.isNotEmpty || _tabController.index == 1) {
             _fetchTodoBanners();
           }

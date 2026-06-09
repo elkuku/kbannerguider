@@ -44,12 +44,14 @@ class BannerDetailPage extends StatefulWidget {
     required this.bannerService,
     this.storageService,
     this.listTypes = const {},
+    this.getToken,
   });
 
   final BannerItem banner;
   final BannerService bannerService;
   final LocalStorageService? storageService;
   final Map<String, String> listTypes;
+  final Future<String?> Function()? getToken;
 
   @override
   State<BannerDetailPage> createState() => _BannerDetailPageState();
@@ -138,7 +140,11 @@ class _BannerDetailPageState extends State<BannerDetailPage>
       updated[_banner.id] = type;
     }
     setState(() => _listTypes = updated);
-    await widget.storageService?.saveListTypes(updated);
+
+    final token = await widget.getToken?.call();
+    if (token != null) {
+      await widget.bannerService.setListType(_banner.id, type, token);
+    }
   }
 
   @override
@@ -270,7 +276,7 @@ class _BannerDetailPageState extends State<BannerDetailPage>
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ],
-                    ...[
+                    if (widget.getToken != null) ...[
                       const SizedBox(height: 16),
                       const Divider(),
                       const SizedBox(height: 4),
