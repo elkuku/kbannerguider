@@ -668,7 +668,7 @@ class _BannerListPageState extends State<BannerListPage>
         ),
       ),
       title: Text(banner.title),
-      subtitle: (subtitleParts.isNotEmpty || banner.formattedAddress != null || banner.warning != null)
+      subtitle: (subtitleParts.isNotEmpty || banner.formattedAddress != null || (_isSignedIn && banner.author != null) || banner.warning != null)
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -681,6 +681,21 @@ class _BannerListPageState extends State<BannerListPage>
                       Expanded(
                         child: Text(
                           banner.formattedAddress!,
+                          style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                if (_isSignedIn && banner.author != null)
+                  Row(
+                    children: [
+                      Icon(Icons.person_outline, size: 12, color: Colors.grey.shade500),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          banner.author!,
                           style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,

@@ -7,6 +7,15 @@ import '../models/banner_item.dart';
 class BannerService {
   static const int pageSize = 25;
 
+  // Default list attributes + missions + warning, so the list endpoint
+  // returns mission author data and warning text alongside the normal fields.
+  static const _listAttributes = [
+    'id', 'title', 'numberOfMissions', 'numberOfSubmittedMissions',
+    'numberOfDisabledMissions', 'lengthMeters', 'startLatitude',
+    'startLongitude', 'picture', 'width', 'startPlaceId', 'formattedAddress',
+    'listType', 'missions', 'warning',
+  ];
+
   final http.Client _client;
 
   BannerService({http.Client? client}) : _client = client ?? http.Client();
@@ -17,16 +26,17 @@ class BannerService {
     int offset = 0,
     String? accessToken,
   }) async {
-    final uri = Uri.parse(
-      'https://api.bannergress.com/bnrs'
-      '?orderBy=proximityStartPoint'
-      '&orderDirection=ASC'
-      '&online=true'
-      '&proximityLatitude=$latitude'
-      '&proximityLongitude=$longitude'
-      '&offset=$offset'
-      '&limit=$pageSize',
-    );
+    final query = [
+      'orderBy=proximityStartPoint',
+      'orderDirection=ASC',
+      'online=true',
+      'proximityLatitude=$latitude',
+      'proximityLongitude=$longitude',
+      'offset=$offset',
+      'limit=$pageSize',
+      if (accessToken != null) ..._listAttributes.map((a) => 'attributes=$a'),
+    ].join('&');
+    final uri = Uri.parse('https://api.bannergress.com/bnrs?$query');
 
     final headers = accessToken != null
         ? {'Authorization': 'Bearer $accessToken'}
@@ -89,14 +99,15 @@ class BannerService {
     int offset = 0,
     int limit = 100,
   }) async {
-    final uri =
-        Uri.parse('https://api.bannergress.com/bnrs').replace(queryParameters: {
-      'listTypes': listType,
-      'orderBy': 'listAdded',
-      'orderDirection': 'DESC',
-      'offset': offset.toString(),
-      'limit': limit.toString(),
-    });
+    final query = [
+      'listTypes=$listType',
+      'orderBy=listAdded',
+      'orderDirection=DESC',
+      'offset=$offset',
+      'limit=$limit',
+      ..._listAttributes.map((a) => 'attributes=$a'),
+    ].join('&');
+    final uri = Uri.parse('https://api.bannergress.com/bnrs?$query');
 
     final response = await _client.get(uri, headers: {
       'Authorization': 'Bearer $accessToken',

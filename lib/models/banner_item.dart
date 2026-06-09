@@ -98,4 +98,7 @@ class BannerItem {
   }
 
   String get bannerUrl => 'https://bannergress.com/banner/$id';
+
+  /// Author name taken from the first mission, if available.
+  String? get author => missions.isNotEmpty ? missions.first.author?.name : null;
 }
