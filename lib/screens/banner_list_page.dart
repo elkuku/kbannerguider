@@ -668,11 +668,26 @@ class _BannerListPageState extends State<BannerListPage>
         ),
       ),
       title: Text(banner.title),
-      subtitle: (subtitleParts.isNotEmpty || banner.warning != null)
+      subtitle: (subtitleParts.isNotEmpty || banner.formattedAddress != null || banner.warning != null)
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (subtitleParts.isNotEmpty) Text(subtitleParts.join('  ·  ')),
+                if (banner.formattedAddress != null)
+                  Row(
+                    children: [
+                      Icon(Icons.location_on_outlined, size: 12, color: Colors.grey.shade500),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          banner.formattedAddress!,
+                          style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
                 if (banner.warning != null)
                   Row(
                     children: [
