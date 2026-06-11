@@ -170,6 +170,10 @@ class _BannerDetailPageState extends State<BannerDetailPage>
               currentMissionIndex: _currentMissionIndex,
               onMissionIndexChanged: _setGuiderIndex,
               onLaunchMission: _launchCurrentMission,
+              onMarkDone: () async {
+                await _setListType('done');
+                if (mounted) Navigator.pop(context, _listTypes);
+              },
             ),
           ],
         ),
@@ -397,6 +401,7 @@ class _BannerMap extends StatefulWidget {
     this.currentMissionIndex,
     this.onMissionIndexChanged,
     this.onLaunchMission,
+    this.onMarkDone,
   });
 
   final List<MissionItem> missions;
@@ -408,6 +413,7 @@ class _BannerMap extends StatefulWidget {
   final int? currentMissionIndex;
   final void Function(int)? onMissionIndexChanged;
   final Future<void> Function()? onLaunchMission;
+  final Future<void> Function()? onMarkDone;
 
   @override
   State<_BannerMap> createState() => _BannerMapState();
@@ -737,6 +743,7 @@ class _BannerMapState extends State<_BannerMap> {
               onLaunch: widget.currentMissionIndex! < widget.missions.length
                   ? widget.onLaunchMission
                   : null,
+              onMarkDone: widget.onMarkDone,
             ),
           ),
         Positioned(
@@ -787,6 +794,7 @@ class _GuiderBar extends StatefulWidget {
     required this.onDecrement,
     required this.onIncrement,
     required this.onLaunch,
+    this.onMarkDone,
   });
 
   final int currentIndex;
@@ -794,6 +802,7 @@ class _GuiderBar extends StatefulWidget {
   final VoidCallback? onDecrement;
   final VoidCallback? onIncrement;
   final Future<void> Function()? onLaunch;
+  final Future<void> Function()? onMarkDone;
 
   @override
   State<_GuiderBar> createState() => _GuiderBarState();
@@ -804,7 +813,7 @@ class _GuiderBarState extends State<_GuiderBar> {
 
   String get _buttonLabel {
     if (widget.currentIndex == 0) return 'Start';
-    if (widget.currentIndex >= widget.total) return 'Done';
+    if (widget.currentIndex >= widget.total) return 'Mark as done';
     return 'Next';
   }
 
@@ -820,12 +829,20 @@ class _GuiderBarState extends State<_GuiderBar> {
     if (mounted) setState(() => _launching = false);
   }
 
+  Future<void> _handleMarkDone() async {
+    if (_launching || widget.onMarkDone == null) return;
+    setState(() => _launching = true);
+    await widget.onMarkDone!();
+    if (mounted) setState(() => _launching = false);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final displayIndex = widget.currentIndex.clamp(0, widget.total);
 
     final isDark = theme.brightness == Brightness.dark;
+
     return Container(
       decoration: BoxDecoration(
         color: isDark
@@ -863,13 +880,18 @@ class _GuiderBarState extends State<_GuiderBar> {
             onPressed: widget.onIncrement,
           ),
           const Spacer(),
-          // Launch button
+          // Launch / mark-done button
           FilledButton.icon(
             style: widget.currentIndex == 0
                 ? FilledButton.styleFrom(backgroundColor: Colors.green)
-                : null,
-            onPressed:
-                widget.onLaunch == null || _launching ? null : _handleLaunch,
+                : widget.currentIndex >= widget.total
+                    ? FilledButton.styleFrom(backgroundColor: Colors.green)
+                    : null,
+            onPressed: _launching
+                ? null
+                : widget.currentIndex >= widget.total
+                    ? (widget.onMarkDone == null ? null : _handleMarkDone)
+                    : (widget.onLaunch == null ? null : _handleLaunch),
             icon: _launching
                 ? const SizedBox(
                     width: 16,
