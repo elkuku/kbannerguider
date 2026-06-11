@@ -429,8 +429,13 @@ class _BannerMapState extends State<_BannerMap> {
       .map((p) => LatLng(p.latitude!, p.longitude!))
       .toList();
 
-  void _focusOnMission(int index) {
-    final points = _missionPoints(widget.missions[index]);
+  void _focusOnMission(int index) => _focusOnMissions([index]);
+
+  void _focusOnMissions(List<int> indices) {
+    final points = indices
+        .where((i) => i >= 0 && i < widget.missions.length)
+        .expand((i) => _missionPoints(widget.missions[i]))
+        .toList();
     if (points.isEmpty) return;
     _mapController.fitCamera(
       CameraFit.coordinates(
@@ -438,6 +443,17 @@ class _BannerMapState extends State<_BannerMap> {
         padding: const EdgeInsets.all(60),
       ),
     );
+  }
+
+  @override
+  void didUpdateWidget(_BannerMap old) {
+    super.didUpdateWidget(old);
+    final ci = widget.currentMissionIndex ?? 0;
+    if (ci != (old.currentMissionIndex ?? 0) && ci > 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _focusOnMissions([ci - 1, ci]);
+      });
+    }
   }
 
   @override
@@ -531,11 +547,20 @@ class _BannerMapState extends State<_BannerMap> {
       padding: const EdgeInsets.all(40),
     );
 
+    final ci = widget.currentMissionIndex ?? 0;
+    final isGuiding = ci > 0;
+    final visibleIndices = isGuiding
+        ? [
+            if (ci - 1 < widget.missions.length) ci - 1,
+            if (ci < widget.missions.length) ci,
+          ]
+        : List.generate(widget.missions.length, (i) => i);
+
     final polylines = <Polyline>[];
     final waypointMarkers = <Marker>[];
     final startMarkers = <Marker>[];
 
-    for (var i = 0; i < widget.missions.length; i++) {
+    for (final i in visibleIndices) {
       final mission = widget.missions[i];
       final color = _missionColor(i);
       final points = _missionPoints(mission);
@@ -686,7 +711,8 @@ class _BannerMapState extends State<_BannerMap> {
             if (flagMarkers.isNotEmpty) MarkerLayer(markers: flagMarkers),
             if (locationMarkers.isNotEmpty)
               MarkerLayer(markers: locationMarkers),
-            _MapLegend(missions: widget.missions, onFocus: _focusOnMission),
+            if (!isGuiding)
+              _MapLegend(missions: widget.missions, onFocus: _focusOnMission),
           ],
         ),
         // Guider controls bar
@@ -797,7 +823,7 @@ class _GuiderBarState extends State<_GuiderBar> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final displayIndex = widget.currentIndex.clamp(1, widget.total);
+    final displayIndex = widget.currentIndex.clamp(0, widget.total);
 
     final isDark = theme.brightness == Brightness.dark;
     return Container(
@@ -839,6 +865,9 @@ class _GuiderBarState extends State<_GuiderBar> {
           const Spacer(),
           // Launch button
           FilledButton.icon(
+            style: widget.currentIndex == 0
+                ? FilledButton.styleFrom(backgroundColor: Colors.green)
+                : null,
             onPressed:
                 widget.onLaunch == null || _launching ? null : _handleLaunch,
             icon: _launching
