@@ -708,7 +708,7 @@ class _BannerMapState extends State<_BannerMap> {
             if (waypointMarkers.isNotEmpty)
               MarkerLayer(markers: waypointMarkers),
             if (startMarkers.isNotEmpty) MarkerLayer(markers: startMarkers),
-            if (flagMarkers.isNotEmpty) MarkerLayer(markers: flagMarkers),
+            if (flagMarkers.isNotEmpty && !isGuiding) MarkerLayer(markers: flagMarkers),
             if (locationMarkers.isNotEmpty)
               MarkerLayer(markers: locationMarkers),
             if (!isGuiding)
