@@ -10,11 +10,11 @@ import '../services/auth_service.dart';
 import '../services/banner_service.dart';
 import '../services/location_service.dart';
 import '../utils/format.dart';
-import 'banner_detail_page.dart';
 import 'location_picker_page.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-
-import '../widgets/full_image_dialog.dart';
+import '../widgets/banner_tile.dart';
+import '../widgets/filter_bar.dart';
+import '../widgets/location_bar.dart';
+import '../widgets/sign_in_banner.dart';
 
 class BannerListPage extends StatefulWidget {
   BannerListPage({
@@ -40,7 +40,7 @@ class BannerListPage extends StatefulWidget {
 
 class _BannerListPageState extends State<BannerListPage>
     with SingleTickerProviderStateMixin {
-  // ── Nearby tab state ──────────────────────────────────────────────────
+  // ── Nearby tab state ───────────────────────────────────────────────────────
   List<BannerItem> _banners = [];
   bool _loading = false;
   bool _loadingMore = false;
@@ -51,11 +51,11 @@ class _BannerListPageState extends State<BannerListPage>
   Set<String> _hiddenFilters = {};
   final ScrollController _nearbyScrollController = ScrollController();
 
-  // ── To-do tab state ───────────────────────────────────────────────────
+  // ── To-do tab state ────────────────────────────────────────────────────────
   List<BannerItem> _todoBanners = [];
   bool _loadingTodo = false;
 
-  // ── Shared state ──────────────────────────────────────────────────────
+  // ── Shared state ───────────────────────────────────────────────────────────
   Position? _position;
   LatLng? _customCenter;
   bool _isSignedIn = false;
@@ -63,8 +63,6 @@ class _BannerListPageState extends State<BannerListPage>
   Map<String, String> _listTypes = {};
   String? _authError;
   late final TabController _tabController;
-
-  // ─────────────────────────────────────────────────────────────────────
 
   List<BannerItem> get _filteredBanners {
     if (_hiddenFilters.isEmpty) return _banners;
@@ -115,12 +113,10 @@ class _BannerListPageState extends State<BannerListPage>
   }
 
   void _onTabChanged() {
-    if (_tabController.index == 1 && !_loadingTodo) {
-      _fetchTodoBanners();
-    }
+    if (_tabController.index == 1 && !_loadingTodo) _fetchTodoBanners();
   }
 
-  // ── Auth ───────────────────────────────────────────────────────────────
+  // ── Auth ───────────────────────────────────────────────────────────────────
 
   Future<void> _checkAuth() async {
     final auth = widget._authService;
@@ -131,8 +127,6 @@ class _BannerListPageState extends State<BannerListPage>
       setState(() => _isSignedIn = false);
       return;
     }
-    // getAccessToken() auto-refreshes if the stored token is expired.
-    // If both tokens are gone/invalid it returns null and logs the user out.
     final token = await _getToken();
     if (!mounted) return;
     setState(() => _isSignedIn = token != null);
@@ -181,7 +175,7 @@ class _BannerListPageState extends State<BannerListPage>
     _fetchBanners();
   }
 
-  // ── Nearby fetching ────────────────────────────────────────────────────
+  // ── Nearby fetching ────────────────────────────────────────────────────────
 
   void _onNearbyScroll() {
     if (_nearbyScrollController.position.pixels >=
@@ -193,14 +187,18 @@ class _BannerListPageState extends State<BannerListPage>
     }
   }
 
-  Future<String?> _getToken() => widget._authService?.getAccessToken() ?? Future.value(null);
+  Future<String?> _getToken() =>
+      widget._authService?.getAccessToken() ?? Future.value(null);
 
   Future<void> _syncListStates(String token) async {
     try {
       final results = await Future.wait([
-        widget._bannerService.fetchByListType(listType: 'todo', accessToken: token),
-        widget._bannerService.fetchByListType(listType: 'done', accessToken: token),
-        widget._bannerService.fetchByListType(listType: 'blacklist', accessToken: token),
+        widget._bannerService
+            .fetchByListType(listType: 'todo', accessToken: token),
+        widget._bannerService
+            .fetchByListType(listType: 'done', accessToken: token),
+        widget._bannerService
+            .fetchByListType(listType: 'blacklist', accessToken: token),
       ]);
       final synced = <String, String>{};
       for (final (type, banners) in [
@@ -208,9 +206,7 @@ class _BannerListPageState extends State<BannerListPage>
         ('done', results[1]),
         ('blacklist', results[2]),
       ]) {
-        for (final b in banners) {
-          synced[b.id] = type;
-        }
+        for (final b in banners) { synced[b.id] = type; }
       }
       if (mounted && synced.isNotEmpty) {
         setState(() => _listTypes = Map.of(_listTypes)..addAll(synced));
@@ -247,7 +243,8 @@ class _BannerListPageState extends State<BannerListPage>
           if (mounted) setState(() => _position = pos);
         }).catchError((_) {});
       } else {
-        final position = await widget._locationService.getCurrentPosition();
+        final position =
+            await widget._locationService.getCurrentPosition();
         setState(() => _position = position);
         lat = position.latitude;
         lng = position.longitude;
@@ -298,7 +295,7 @@ class _BannerListPageState extends State<BannerListPage>
     }
   }
 
-  // ── To-do fetching ─────────────────────────────────────────────────────
+  // ── To-do fetching ─────────────────────────────────────────────────────────
 
   Future<void> _fetchTodoBanners() async {
     if (_loadingTodo || !_isSignedIn) return;
@@ -308,7 +305,6 @@ class _BannerListPageState extends State<BannerListPage>
   Future<void> _fetchTodosFromApi() async {
     final auth = widget._authService;
     if (auth == null) return;
-
     setState(() => _loadingTodo = true);
 
     try {
@@ -325,7 +321,12 @@ class _BannerListPageState extends State<BannerListPage>
       } on SessionExpiredException {
         token = await auth.refreshIfNeeded();
         if (token == null) {
-          if (mounted) setState(() { _isSignedIn = false; _loadingTodo = false; });
+          if (mounted) {
+            setState(() {
+              _isSignedIn = false;
+              _loadingTodo = false;
+            });
+          }
           return;
         }
         todos = await widget._bannerService
@@ -343,13 +344,18 @@ class _BannerListPageState extends State<BannerListPage>
         });
       }
 
-      if (mounted) setState(() { _todoBanners = todos; _loadingTodo = false; });
-    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _todoBanners = todos;
+          _loadingTodo = false;
+        });
+      }
+    } catch (_) {
       if (mounted) setState(() => _loadingTodo = false);
     }
   }
 
-  // ── Location picker ────────────────────────────────────────────────────
+  // ── Location picker ────────────────────────────────────────────────────────
 
   Future<void> _openLocationPicker() async {
     LatLng? initial = _customCenter;
@@ -372,7 +378,7 @@ class _BannerListPageState extends State<BannerListPage>
     _fetchBanners();
   }
 
-  // ── Build ──────────────────────────────────────────────────────────────
+  // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -389,15 +395,15 @@ class _BannerListPageState extends State<BannerListPage>
               Text('KBannerGuider'),
               Text(
                 appVersion,
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.normal),
+                style:
+                    TextStyle(fontSize: 11, fontWeight: FontWeight.normal),
               ),
             ],
           ),
           actions: [
             IconButton(
               icon: Icon(
-                widget.isDarkMode ? Icons.light_mode : Icons.dark_mode,
-              ),
+                  widget.isDarkMode ? Icons.light_mode : Icons.dark_mode),
               onPressed: widget.onToggleTheme,
               tooltip: widget.isDarkMode
                   ? 'Switch to light mode'
@@ -417,7 +423,7 @@ class _BannerListPageState extends State<BannerListPage>
         ),
         body: Column(
           children: [
-            _LocationBar(
+            LocationBar(
               position: _position,
               customCenter: _customCenter,
               onPickLocation: _openLocationPicker,
@@ -428,13 +434,13 @@ class _BannerListPageState extends State<BannerListPage>
               tabs: [
                 Tab(
                   icon: const Icon(Icons.place_outlined),
-                  text:
-                      'Nearby${_banners.isNotEmpty ? ' (${_banners.length})' : ''}',
+                  text: 'Nearby'
+                      '${_banners.isNotEmpty ? ' (${_banners.length})' : ''}',
                 ),
                 Tab(
                   icon: const Icon(Icons.bookmark_outline),
-                  text:
-                      'To-do${_todoBanners.isNotEmpty ? ' (${_todoBanners.length})' : ''}',
+                  text: 'To-do'
+                      '${_todoBanners.isNotEmpty ? ' (${_todoBanners.length})' : ''}',
                 ),
               ],
             ),
@@ -460,7 +466,8 @@ class _BannerListPageState extends State<BannerListPage>
         child: SizedBox(
           width: 18,
           height: 18,
-          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+          child: CircularProgressIndicator(
+              strokeWidth: 2, color: Colors.white),
         ),
       );
     }
@@ -477,10 +484,8 @@ class _BannerListPageState extends State<BannerListPage>
       itemBuilder: (_) => [
         const PopupMenuItem(
           enabled: false,
-          child: Text(
-            'Signed in to Bannergress',
-            style: TextStyle(fontWeight: FontWeight.w600),
-          ),
+          child: Text('Signed in to Bannergress',
+              style: TextStyle(fontWeight: FontWeight.w600)),
         ),
         const PopupMenuDivider(),
         const PopupMenuItem(value: 'signout', child: Text('Sign out')),
@@ -491,18 +496,18 @@ class _BannerListPageState extends State<BannerListPage>
     );
   }
 
-  // ── Nearby tab ─────────────────────────────────────────────────────────
+  // ── Nearby tab ─────────────────────────────────────────────────────────────
 
   Widget _buildNearbyTab() {
     return Column(
       children: [
         if (widget._authService != null && !_isSignedIn)
-          _BannergressSignInBanner(
+          BannergressSignInBanner(
             authError: _authError,
             onSignIn: _signIn,
           ),
         if (_isSignedIn && _banners.isNotEmpty)
-          _FilterBar(
+          FilterBar(
             hiddenFilters: _hiddenFilters,
             listTypes: _listTypes,
             banners: _banners,
@@ -560,12 +565,30 @@ class _BannerListPageState extends State<BannerListPage>
             child: Center(child: CircularProgressIndicator()),
           );
         }
-        return _buildBannerTile(visible[i]);
+        final banner = visible[i];
+        return BannerTile(
+          banner: banner,
+          bannerService: widget._bannerService,
+          listTypes: _listTypes,
+          listType: _isSignedIn ? _listTypes[banner.id] : null,
+          distance: _formatDistance(banner),
+          isSignedIn: _isSignedIn,
+          getToken: _isSignedIn ? _getToken : null,
+          onListTypesUpdated: _isSignedIn
+              ? (updated) {
+                  setState(() => _listTypes = updated);
+                  if (_todoBanners.isNotEmpty ||
+                      _tabController.index == 1) {
+                    _fetchTodoBanners();
+                  }
+                }
+              : null,
+        );
       },
     );
   }
 
-  // ── To-do tab ──────────────────────────────────────────────────────────
+  // ── To-do tab ──────────────────────────────────────────────────────────────
 
   Widget _buildTodoTab() {
     if (_loadingTodo && _todoBanners.isEmpty) {
@@ -579,7 +602,8 @@ class _BannerListPageState extends State<BannerListPage>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.bookmark_border, size: 48, color: Colors.grey),
+              const Icon(Icons.bookmark_border,
+                  size: 48, color: Colors.grey),
               const SizedBox(height: 12),
               Text(
                 _isSignedIn
@@ -614,358 +638,23 @@ class _BannerListPageState extends State<BannerListPage>
               child: Center(child: CircularProgressIndicator()),
             );
           }
-          return _buildBannerTile(_todoBanners[i], showListBadge: false);
+          final banner = _todoBanners[i];
+          return BannerTile(
+            banner: banner,
+            bannerService: widget._bannerService,
+            listTypes: _listTypes,
+            distance: _formatDistance(banner),
+            isSignedIn: _isSignedIn,
+            getToken: _isSignedIn ? _getToken : null,
+            onListTypesUpdated: _isSignedIn
+                ? (updated) {
+                    setState(() => _listTypes = updated);
+                    _fetchTodoBanners();
+                  }
+                : null,
+          );
         },
       ),
-    );
-  }
-
-  // ── Shared banner tile ─────────────────────────────────────────────────
-
-  Widget _buildBannerTile(BannerItem banner, {bool showListBadge = true}) {
-    final listType = (showListBadge && _isSignedIn) ? _listTypes[banner.id] : null;
-    final distance = _formatDistance(banner);
-
-    final subtitleParts = [
-      if (banner.numberOfMissions != null)
-        '${banner.numberOfMissions} mission'
-        '${banner.numberOfMissions == 1 ? '' : 's'}',
-      ?distance,
-    ];
-
-    return ListTile(
-      onTap: () async {
-        final updated = await Navigator.push<Map<String, String>>(
-          context,
-          MaterialPageRoute(
-            builder: (_) => BannerDetailPage(
-              banner: banner,
-              bannerService: widget._bannerService,
-              listTypes: _listTypes,
-              getToken: _isSignedIn ? _getToken : null,
-            ),
-          ),
-        );
-        if (updated != null && _isSignedIn) {
-          setState(() => _listTypes = updated);
-          if (_todoBanners.isNotEmpty || _tabController.index == 1) {
-            _fetchTodoBanners();
-          }
-        }
-      },
-      leading: Hero(
-        tag: 'banner-${banner.id}',
-        child: GestureDetector(
-          onTap: () => showFullImage(context, banner.pictureUrl),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: CachedNetworkImage(
-              imageUrl: banner.pictureUrl,
-              width: 48,
-              height: 48,
-              fit: BoxFit.cover,
-              errorWidget: (_, _, _) => const Icon(Icons.map, size: 48),
-            ),
-          ),
-        ),
-      ),
-      title: Text(banner.title),
-      subtitle: (subtitleParts.isNotEmpty || banner.formattedAddress != null || (_isSignedIn && banner.authorAgent != null) || banner.warning != null)
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (subtitleParts.isNotEmpty) Text(subtitleParts.join('  ·  ')),
-                if (banner.formattedAddress != null)
-                  Row(
-                    children: [
-                      Icon(Icons.location_on_outlined, size: 12, color: Colors.grey.shade500),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          banner.formattedAddress!,
-                          style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                if (_isSignedIn && banner.authorAgent != null)
-                  Row(
-                    children: [
-                      Icon(Icons.person_outline, size: 12, color: factionColor(banner.authorAgent!.faction)),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          banner.authorAgent!.name,
-                          style: TextStyle(fontSize: 12, color: factionColor(banner.authorAgent!.faction)),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                if (banner.warning != null)
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.warning_amber_outlined,
-                        size: 12,
-                        color: Colors.amber,
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          banner.warning!,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.amber,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-              ],
-            )
-          : null,
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (banner.missions.any(
-                (m) => m.steps.any((s) => s.objective == 'enterPassphrase'),
-              ))
-            const Padding(
-              padding: EdgeInsets.only(right: 4),
-              child: Icon(Icons.key_outlined, size: 16, color: Colors.amber),
-            ),
-          if (listType != null && listType != 'none')
-            _ListTypeBadge(listType: listType),
-          const Icon(Icons.chevron_right),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Bannergress sign-in banner ───────────────────────────────────────────────
-
-class _BannergressSignInBanner extends StatelessWidget {
-  const _BannergressSignInBanner({
-    required this.authError,
-    required this.onSignIn,
-  });
-
-  final String? authError;
-  final VoidCallback onSignIn;
-
-  @override
-  Widget build(BuildContext context) {
-    final hasError = authError != null;
-    final color = hasError ? Colors.red : Colors.blue;
-
-    return Card(
-      margin: const EdgeInsets.fromLTRB(8, 8, 8, 0),
-      color: color.withValues(alpha: 0.08),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: color.withValues(alpha: 0.4)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        child: Row(
-          children: [
-            Icon(
-              hasError ? Icons.error_outline : Icons.account_circle_outlined,
-              size: 16,
-              color: color,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                hasError
-                    ? authError!
-                    : 'Sign in to sync your To-do list from Bannergress',
-                style: TextStyle(fontSize: 12, color: color),
-              ),
-            ),
-            TextButton(
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              onPressed: onSignIn,
-              child: Text('Sign in', style: TextStyle(fontSize: 12, color: color)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Filter bar ──────────────────────────────────────────────────────────────
-
-class _FilterBar extends StatelessWidget {
-  const _FilterBar({
-    required this.hiddenFilters,
-    required this.listTypes,
-    required this.banners,
-    required this.onChanged,
-  });
-
-  final Set<String> hiddenFilters;
-  final Map<String, String> listTypes;
-  final List<BannerItem> banners;
-  final ValueChanged<Set<String>> onChanged;
-
-  int _count(String key) {
-    if (key == 'unsorted') {
-      return banners.where((b) {
-        final t = listTypes[b.id];
-        return t == null || t == 'none';
-      }).length;
-    }
-    return banners.where((b) => listTypes[b.id] == key).length;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    const options = [
-      ('todo', 'To-do', Icons.bookmark_outline, Colors.blue),
-      ('done', 'Done', Icons.check_circle_outline, Colors.green),
-      ('blacklist', 'Skip', Icons.block, Colors.red),
-      ('unsorted', 'Unsorted', Icons.label_off_outlined, Colors.grey),
-    ];
-
-    return Container(
-      color: Theme.of(context).colorScheme.surfaceContainerLow,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        child: Row(
-          children: [
-            ...options.map((opt) {
-              final (key, label, icon, baseColor) = opt;
-              final color = baseColor as Color;
-              final visible = !hiddenFilters.contains(key);
-              final count = _count(key);
-              return Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: FilterChip(
-                  selected: visible,
-                  avatar: Icon(icon,
-                      size: 15, color: visible ? color : Colors.grey),
-                  label: Text('$label  $count',
-                      style: const TextStyle(fontSize: 12)),
-                  onSelected: (_) {
-                    final updated = Set<String>.of(hiddenFilters);
-                    if (visible) {
-                      updated.add(key);
-                    } else {
-                      updated.remove(key);
-                    }
-                    onChanged(updated);
-                  },
-                  selectedColor: color.withValues(alpha: 0.15),
-                  checkmarkColor: color,
-                  showCheckmark: false,
-                ),
-              );
-            }),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Location bar ────────────────────────────────────────────────────────────
-
-class _LocationBar extends StatelessWidget {
-  const _LocationBar({
-    required this.position,
-    required this.customCenter,
-    required this.onPickLocation,
-    required this.onClearCustom,
-  });
-
-  final Position? position;
-  final LatLng? customCenter;
-  final VoidCallback onPickLocation;
-  final VoidCallback onClearCustom;
-
-  @override
-  Widget build(BuildContext context) {
-    final isCustom = customCenter != null;
-    final lat = isCustom ? customCenter!.latitude : position?.latitude;
-    final lng = isCustom ? customCenter!.longitude : position?.longitude;
-    final coordText = lat != null && lng != null
-        ? '${lat.toStringAsFixed(5)},  ${lng.toStringAsFixed(5)}'
-        : 'Locating…';
-
-    return InkWell(
-      onTap: onPickLocation,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
-        child: Row(
-          children: [
-            Icon(
-              isCustom ? Icons.location_pin : Icons.my_location,
-              size: 16,
-              color: isCustom
-                  ? Colors.orange
-                  : Theme.of(context).colorScheme.primary,
-            ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                isCustom ? coordText : '$coordText  (GPS)',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(fontFamily: 'monospace'),
-              ),
-            ),
-            if (isCustom)
-              GestureDetector(
-                onTap: onClearCustom,
-                child: Tooltip(
-                  message: 'Switch back to GPS',
-                  child: Icon(Icons.gps_fixed,
-                      size: 16,
-                      color: Theme.of(context).colorScheme.primary),
-                ),
-              )
-            else
-              Icon(Icons.edit_location_alt_outlined,
-                  size: 16, color: Colors.grey.shade400),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── List type badge ─────────────────────────────────────────────────────────
-
-class _ListTypeBadge extends StatelessWidget {
-  const _ListTypeBadge({required this.listType});
-  final String listType;
-
-  @override
-  Widget build(BuildContext context) {
-    final (icon, color) = switch (listType) {
-      'todo' => (Icons.bookmark_outline, Colors.blue),
-      'done' => (Icons.check_circle_outline, Colors.green),
-      'blacklist' => (Icons.block, Colors.red),
-      _ => (Icons.label_outline, Colors.grey),
-    };
-    return Padding(
-      padding: const EdgeInsets.only(right: 4),
-      child: Icon(icon, size: 18, color: color),
     );
   }
 }
