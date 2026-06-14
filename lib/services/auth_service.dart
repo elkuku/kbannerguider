@@ -14,8 +14,36 @@ const _redirectUri = 'https://bannergress.com/';
 const _keyAccessToken = 'bg_access_token';
 const _keyRefreshToken = 'bg_refresh_token';
 
+/// Minimal key/value storage interface so AuthService can be tested without
+/// platform channels.
+abstract class TokenStorage {
+  Future<String?> read(String key);
+  Future<void> write(String key, String value);
+  Future<void> deleteAll();
+}
+
+class _SecureTokenStorage implements TokenStorage {
+  const _SecureTokenStorage();
+  final _s = const FlutterSecureStorage();
+
+  @override
+  Future<String?> read(String key) => _s.read(key: key);
+
+  @override
+  Future<void> write(String key, String value) =>
+      _s.write(key: key, value: value);
+
+  @override
+  Future<void> deleteAll() => _s.deleteAll();
+}
+
 class AuthService {
-  final _storage = const FlutterSecureStorage();
+  AuthService({TokenStorage? storage, http.Client? httpClient})
+      : _storage = storage ?? const _SecureTokenStorage(),
+        _httpClient = httpClient ?? http.Client();
+
+  final TokenStorage _storage;
+  final http.Client _httpClient;
 
   // Deduplicates concurrent refresh attempts that race at startup.
   Future<String?>? _pendingRefresh;
@@ -23,7 +51,7 @@ class AuthService {
   /// Returns a valid access token, refreshing silently if the stored one is
   /// expired or close to expiry. Returns null when not logged in or refresh fails.
   Future<String?> getAccessToken() async {
-    final token = await _storage.read(key: _keyAccessToken);
+    final token = await _storage.read(_keyAccessToken);
     if (token == null || token.isEmpty) return null;
     if (!_isTokenExpiredOrSoon(token)) return token;
 
@@ -33,7 +61,7 @@ class AuthService {
   }
 
   Future<bool> isLoggedIn() async {
-    final refresh = await _storage.read(key: _keyRefreshToken);
+    final refresh = await _storage.read(_keyRefreshToken);
     return refresh != null && refresh.isNotEmpty;
   }
 
@@ -104,11 +132,11 @@ class AuthService {
   }
 
   Future<String?> refreshIfNeeded() async {
-    final refreshToken = await _storage.read(key: _keyRefreshToken);
+    final refreshToken = await _storage.read(_keyRefreshToken);
     if (refreshToken == null) return null;
 
     try {
-      final response = await http.post(
+      final response = await _httpClient.post(
         Uri.parse('$_keycloakBase/token'),
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
         body: {
@@ -147,12 +175,10 @@ class AuthService {
 
   Future<void> _saveTokens(Map<String, dynamic> tokens) async {
     if (tokens['access_token'] != null) {
-      await _storage.write(
-          key: _keyAccessToken, value: tokens['access_token'] as String);
+      await _storage.write(_keyAccessToken, tokens['access_token'] as String);
     }
     if (tokens['refresh_token'] != null) {
-      await _storage.write(
-          key: _keyRefreshToken, value: tokens['refresh_token'] as String);
+      await _storage.write(_keyRefreshToken, tokens['refresh_token'] as String);
     }
   }
 }
