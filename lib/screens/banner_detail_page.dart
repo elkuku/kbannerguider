@@ -149,32 +149,38 @@ class _BannerDetailPageState extends State<BannerDetailPage>
                 ),
               ),
           ],
-          bottom: TabBar(
-            controller: _tabController,
-            tabs: const [
-              Tab(icon: Icon(Icons.list_outlined), text: 'Missions'),
-              Tab(icon: Icon(Icons.map_outlined), text: 'Map'),
-            ],
-          ),
         ),
-        body: TabBarView(
-          controller: _tabController,
+        body: Column(
           children: [
-            _buildInfoTab(),
-            _BannerMap(
-              missions: _banner.missions,
-              loading: _loadingDetail,
-              bannerStartLat: _banner.startLatitude,
-              bannerStartLng: _banner.startLongitude,
-              bannerTitle: _banner.title,
-              bannerAddress: _banner.formattedAddress,
-              currentMissionIndex: _currentMissionIndex,
-              onMissionIndexChanged: _setGuiderIndex,
-              onLaunchMission: _launchCurrentMission,
-              onMarkDone: () async {
-                await _setListType('done');
-                if (mounted) Navigator.pop(context, _listTypes);
-              },
+            TabBar(
+              controller: _tabController,
+              tabs: const [
+                Tab(icon: Icon(Icons.list_outlined), text: 'Missions'),
+                Tab(icon: Icon(Icons.map_outlined), text: 'Map'),
+              ],
+            ),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildInfoTab(),
+                  _BannerMap(
+                    missions: _banner.missions,
+                    loading: _loadingDetail,
+                    bannerStartLat: _banner.startLatitude,
+                    bannerStartLng: _banner.startLongitude,
+                    bannerTitle: _banner.title,
+                    bannerAddress: _banner.formattedAddress,
+                    currentMissionIndex: _currentMissionIndex,
+                    onMissionIndexChanged: _setGuiderIndex,
+                    onLaunchMission: _launchCurrentMission,
+                    onMarkDone: () async {
+                      await _setListType('done');
+                      if (mounted) Navigator.pop(context, _listTypes);
+                    },
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -215,7 +221,12 @@ class _BannerDetailPageState extends State<BannerDetailPage>
                     children: [
                       const Icon(Icons.warning_amber, color: Colors.orange),
                       const SizedBox(width: 8),
-                      Expanded(child: Text(_banner.warning!)),
+                      Expanded(
+                        child: Text(
+                          _banner.warning!,
+                          style: const TextStyle(color: Colors.black87),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -233,6 +244,7 @@ class _BannerDetailPageState extends State<BannerDetailPage>
                       Expanded(
                         child: Text(
                           'One or more missions require a passphrase.',
+                          style: TextStyle(color: Colors.black87),
                         ),
                       ),
                     ],
