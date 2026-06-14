@@ -663,7 +663,7 @@ class _BannerListPageState extends State<BannerListPage>
         ),
       ),
       title: Text(banner.title),
-      subtitle: (subtitleParts.isNotEmpty || banner.formattedAddress != null || (_isSignedIn && banner.author != null) || banner.warning != null)
+      subtitle: (subtitleParts.isNotEmpty || banner.formattedAddress != null || (_isSignedIn && banner.authorAgent != null) || banner.warning != null)
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -683,15 +683,15 @@ class _BannerListPageState extends State<BannerListPage>
                       ),
                     ],
                   ),
-                if (_isSignedIn && banner.author != null)
+                if (_isSignedIn && banner.authorAgent != null)
                   Row(
                     children: [
-                      Icon(Icons.person_outline, size: 12, color: Colors.grey.shade500),
+                      Icon(Icons.person_outline, size: 12, color: factionColor(banner.authorAgent!.faction)),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
-                          banner.author!,
-                          style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                          banner.authorAgent!.name,
+                          style: TextStyle(fontSize: 12, color: factionColor(banner.authorAgent!.faction)),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),

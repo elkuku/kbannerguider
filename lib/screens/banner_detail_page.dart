@@ -83,7 +83,8 @@ class _BannerDetailPageState extends State<BannerDetailPage>
   Future<void> _loadDetail() async {
     setState(() => _loadingDetail = true);
     try {
-      final full = await widget.bannerService.fetchById(_banner.id);
+      final token = await widget.getToken?.call();
+      final full = await widget.bannerService.fetchById(_banner.id, accessToken: token);
       if (mounted) setState(() => _banner = full);
     } catch (_) {
       // keep the list data already shown
@@ -300,6 +301,29 @@ class _BannerDetailPageState extends State<BannerDetailPage>
                         value:
                             '${_banner.startLatitude!.toStringAsFixed(5)}, '
                             '${_banner.startLongitude!.toStringAsFixed(5)}',
+                      ),
+                    if (_banner.authorAgent != null)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.person_outline,
+                                size: 20,
+                                color: Theme.of(context).colorScheme.primary),
+                            const SizedBox(width: 12),
+                            const Text('Author: ',
+                                style: TextStyle(fontWeight: FontWeight.w600)),
+                            Expanded(
+                              child: Text(
+                                _banner.authorAgent!.name,
+                                style: TextStyle(
+                                    color: factionColor(
+                                        _banner.authorAgent!.faction)),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     if (_banner.eventStartDate != null)
                       _InfoRow(

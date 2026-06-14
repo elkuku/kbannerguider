@@ -101,4 +101,7 @@ class BannerItem {
 
   /// Author name taken from the first mission, if available.
   String? get author => missions.isNotEmpty ? missions.first.author?.name : null;
+
+  /// Full author agent (name + faction) from the first mission, if available.
+  AgentItem? get authorAgent => missions.isNotEmpty ? missions.first.author : null;
 }

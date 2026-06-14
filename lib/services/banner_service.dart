@@ -55,12 +55,16 @@ class BannerService {
         .toList();
   }
 
-  Future<BannerItem> fetchById(String id) async {
+  Future<BannerItem> fetchById(String id, {String? accessToken}) async {
     final uri = Uri.parse(
       'https://api.bannergress.com/bnrs/${Uri.encodeComponent(id)}',
     );
 
-    final response = await _client.get(uri);
+    final headers = accessToken != null
+        ? {'Authorization': 'Bearer $accessToken'}
+        : <String, String>{};
+
+    final response = await _client.get(uri, headers: headers);
 
     if (response.statusCode != 200) {
       throw Exception('Server returned ${response.statusCode}');
