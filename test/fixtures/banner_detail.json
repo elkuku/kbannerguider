@@ -1,0 +1,121 @@
+{
+  "description": "Recorre el Parque Ecológico Santa Ana y sus alrededores",
+  "formattedAddress": "Quito, Ecuador",
+  "id": "parque-santa-ana-6476",
+  "lengthMeters": 9501,
+  "numberOfDisabledMissions": 0,
+  "numberOfMissions": 18,
+  "numberOfSubmittedMissions": 0,
+  "owner": false,
+  "picture": "/bnrs/pictures/db77f33065dbe755ea8c22b3ac739549",
+  "startLatitude": -0.241489,
+  "startLongitude": -78.519962,
+  "startPlaceId": "quito-ad01",
+  "title": "PARQUE SANTA ANA",
+  "type": "sequential",
+  "width": 6,
+  "missions": {
+    "0": {
+      "averageDurationMilliseconds": 438103,
+      "description": "Recorre el Parque Ecológico Santa Ana y sus alrededores",
+      "id": "3d06acb8975a427ab3fb358dea52fda5.1c",
+      "lengthMeters": 181,
+      "picture": "https://lh3.googleusercontent.com/algIYXaBoUVyVSgEAmq5TBLl39bStKplRLs1D97SPGnBdDBAv-ECRQCicCaHcvUll4v7kJIIo3y2RrPH-V8g",
+      "status": "published",
+      "title": "PARQUE SANTA ANA 1/18",
+      "type": "anyOrder",
+      "steps": [
+        {
+          "objective": "hack",
+          "poi": {
+            "id": "ae1c2371daa340ccb8682986c9507e2c.16",
+            "latitude": -0.241489,
+            "longitude": -78.519962,
+            "picture": "https://lh3.googleusercontent.com/MR66tfmvTE5Rd42e588k8rfEZFdzYfHvmi9qqCuNwpe3bgPlwhez8WtUoEBIum4heE_Jjl9DRAtdLgstf-uUG8qQV1_phv3_RiwNfaPtSs37",
+            "title": "Entrada Principal Parque Santa Ana",
+            "type": "portal"
+          }
+        },
+        {
+          "objective": "hack",
+          "poi": {
+            "id": "68cd03e13c7a45fbb7f529890aecb682.16",
+            "latitude": -0.241357,
+            "longitude": -78.519748,
+            "picture": "https://lh3.googleusercontent.com/Ecnm9tfeEUjoNOXFjLvlji57gkSJXnpY1JhM-o_M-jwAFoamIkH7q4E9TN6z5lFJtRG027_bVAwvI5PD8-oJ87onZmrVhA2wLbgo2vh8NOl2",
+            "title": "Área De Gimnasia",
+            "type": "portal"
+          }
+        }
+      ]
+    },
+    "9": {
+      "averageDurationMilliseconds": 1119534,
+      "description": "Acompañame a conocer uno de los barrios mas tranquilos de la ciudad.",
+      "id": "5b7e58154896473c825004d32139c4f3.1c",
+      "lengthMeters": 377,
+      "picture": "https://lh3.googleusercontent.com/6co2UatcLSdW-p6BniaMmqs4YU6QlP9p7gP-sIzJPPDJeyCIJ5ar5d1U6TETYW9PfsvoECCh3-0swEqXdKc",
+      "status": "published",
+      "title": "PARQUE SANTA ANA 10/18",
+      "type": "anyOrder",
+      "steps": [
+        {
+          "objective": "captureOrUpgrade",
+          "poi": {
+            "id": "5ebff075c8d3415e88bfbe0c6bd98772.16",
+            "latitude": -0.240074,
+            "longitude": -78.520008,
+            "picture": "https://lh3.googleusercontent.com/e2sgPIvB8ajl7_NjYN__3b7Lg__PFLxIpk7XlTuy2DKs4d--s9OWen7A8tqslThTPYAQ5KgMRa-M9eb6QTRw6DFw0c8Bew5MvfiH6a3hZyk2WA",
+            "title": "Multideportivo Santa Ana",
+            "type": "portal"
+          }
+        },
+        {
+          "objective": "hack",
+          "poi": {
+            "id": "e33a179468ff4b8390d85871485ca05f.16",
+            "type": "unavailable"
+          }
+        }
+      ]
+    },
+    "17": {
+      "averageDurationMilliseconds": 1228175,
+      "description": "Descubre una maravillosa postal de Quito.",
+      "id": "1416d7b9d42a4e14ada4000622c84927.1c",
+      "lengthMeters": 382,
+      "picture": "https://lh3.googleusercontent.com/EnmgnjRWidQ4iKqj3nSjH7oKiIaKK73JOV6ZRa5XOVpB7Ubnc1wJ4gooGRuvxKzNKLrLdGSVRGfi8lxAWbw",
+      "status": "published",
+      "title": "PARQUE SANTA ANA 18/18",
+      "type": "sequential",
+      "author": {
+        "name": "TestAgent",
+        "faction": "enlightened"
+      },
+      "steps": [
+        {
+          "objective": "enterPassphrase",
+          "poi": {
+            "id": "ec937f33d48d41a7a266a00f4dd037f4.16",
+            "latitude": -0.244816,
+            "longitude": -78.522393,
+            "picture": "https://lh3.googleusercontent.com/7tt0ugxFtgSD4hhCtlfAP2Xc48FWQCp28iPpAqJ1fD0enNv8dBij2LpNPanL55hcI5fW0bplwWI8ceQ8GfwR3jD8fxLK",
+            "title": "Sede Social Villaflora",
+            "type": "portal"
+          }
+        },
+        {
+          "objective": "hack",
+          "poi": {
+            "id": "29f15a55b02a401bb3f5ab0c96f7e9f8.16",
+            "latitude": -0.24564,
+            "longitude": -78.523486,
+            "picture": "https://lh3.googleusercontent.com/oIw3ofHnkhxfh15YImQCAUqwpYRicUeVl9Tu-OFzHjRR1pff4baK-VX5_SftP2Js1FG48DOA3Vn5azv_MWKBmRNBmCGFYekIzGh1NQmTKpwu",
+            "title": "Cancha Sintetica Concha Acústica",
+            "type": "portal"
+          }
+        }
+      ]
+    }
+  }
+}

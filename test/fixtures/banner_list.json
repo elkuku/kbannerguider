@@ -1,0 +1,44 @@
+[
+  {
+    "formattedAddress": "Quito, Ecuador",
+    "id": "parque-santa-ana-6476",
+    "lengthMeters": 9501,
+    "numberOfDisabledMissions": 0,
+    "numberOfMissions": 18,
+    "numberOfSubmittedMissions": 0,
+    "picture": "/bnrs/pictures/db77f33065dbe755ea8c22b3ac739549",
+    "startLatitude": -0.241489,
+    "startLongitude": -78.519962,
+    "startPlaceId": "quito-ad01",
+    "title": "PARQUE SANTA ANA",
+    "width": 6
+  },
+  {
+    "formattedAddress": "Quito, Ecuador",
+    "id": "ruta-chokal-vista-occidental-2934",
+    "lengthMeters": 5911,
+    "numberOfDisabledMissions": 0,
+    "numberOfMissions": 12,
+    "numberOfSubmittedMissions": 0,
+    "picture": "/bnrs/pictures/21b2cec57d3aaad9ddbe5869f558d378",
+    "startLatitude": -0.217675,
+    "startLongitude": -78.514956,
+    "startPlaceId": "quito-ad01",
+    "title": "Ruta Chokal Vista Occidental",
+    "width": 6
+  },
+  {
+    "formattedAddress": "Quito, Ecuador",
+    "id": "ruta-chokal-vista-oriental-6537",
+    "lengthMeters": 5535,
+    "numberOfDisabledMissions": 0,
+    "numberOfMissions": 12,
+    "numberOfSubmittedMissions": 0,
+    "picture": "/bnrs/pictures/726e7cf6fa2e21a989ab6359cc21c65e",
+    "startLatitude": -0.217418,
+    "startLongitude": -78.514906,
+    "startPlaceId": "quito-ad01",
+    "title": "Ruta Chokal Vista Oriental",
+    "width": 6
+  }
+]
