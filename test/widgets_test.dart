@@ -190,6 +190,22 @@ void main() {
       expect(launched, isTrue);
     });
 
+    testWidgets('renders with dark theme background', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        theme: ThemeData.dark(),
+        home: Scaffold(
+          body: GuiderBar(
+            currentIndex: 1,
+            total: 3,
+            onDecrement: () {},
+            onIncrement: () {},
+            onLaunch: () async {},
+          ),
+        ),
+      ));
+      expect(find.byType(GuiderBar), findsOneWidget);
+    });
+
     testWidgets('mark done button calls onMarkDone at end', (tester) async {
       var done = false;
       await tester.pumpWidget(_wrap(GuiderBar(
@@ -360,6 +376,38 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.text('No waypoint data available.'), findsOneWidget);
+    });
+
+    testWidgets('step tiles show correct labels for every objective type',
+        (tester) async {
+      // One step per objective covers all switch cases in _StepTile.
+      final m = _mission(steps: [
+        {'objective': 'captureOrUpgrade', 'poi': {'id': 'p1', 'title': 'P1', 'latitude': 0.0, 'longitude': 0.0, 'type': 'portal'}},
+        {'objective': 'createLink',       'poi': {'id': 'p2', 'title': 'P2', 'latitude': 0.0, 'longitude': 0.0, 'type': 'portal'}},
+        {'objective': 'createField',      'poi': {'id': 'p3', 'title': 'P3', 'latitude': 0.0, 'longitude': 0.0, 'type': 'portal'}},
+        {'objective': 'installMod',       'poi': {'id': 'p4', 'title': 'P4', 'latitude': 0.0, 'longitude': 0.0, 'type': 'portal'}},
+        {'objective': 'takePhoto',        'poi': {'id': 'p5', 'title': 'P5', 'latitude': 0.0, 'longitude': 0.0, 'type': 'portal'}},
+        {'objective': 'viewWaypoint',     'poi': {'id': 'p6', 'title': 'P6', 'latitude': 0.0, 'longitude': 0.0, 'type': 'portal'}},
+        {'objective': 'enterPassphrase',  'poi': {'id': 'p7', 'title': 'P7', 'latitude': 0.0, 'longitude': 0.0, 'type': 'portal'}},
+        {'objective': 'unknownObjective', 'poi': {'id': 'p8', 'title': 'P8', 'latitude': 0.0, 'longitude': 0.0, 'type': 'portal'}},
+      ]);
+      await tester.pumpWidget(_wrapScrollable(MissionTile(
+        index: 0,
+        mission: m,
+        color: Colors.blue,
+      )));
+      await tester.tap(find.byType(ExpansionTile));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('Capture/Upgrade'), findsOneWidget);
+      expect(find.text('Create Link'),     findsOneWidget);
+      expect(find.text('Create Field'),    findsOneWidget);
+      expect(find.text('Install Mod'),     findsOneWidget);
+      expect(find.text('Take Photo'),      findsOneWidget);
+      expect(find.text('View Waypoint'),   findsOneWidget);
+      expect(find.text('Enter Passphrase'),findsOneWidget);
+      expect(find.text('unknownObjective'),findsOneWidget); // default case
     });
   });
 
@@ -724,5 +772,68 @@ void main() {
       expect(find.textContaining('Mission unavailable'), findsOneWidget);
     });
 
+    testWidgets('shows blacklist badge icon when listType is blacklist',
+        (tester) async {
+      await tester.pumpWidget(_wrap(BannerTile(
+        banner: _banner(),
+        bannerService: mockService(),
+        listTypes: {},
+        listType: 'blacklist',
+      )));
+      expect(find.byIcon(Icons.block), findsOneWidget);
+    });
+
+    // These three tests use banners WITHOUT numberOfMissions so subtitleParts
+    // is empty and the short-circuit || chain reaches lines 76-78.
+
+    testWidgets('shows address when subtitleParts is empty', (tester) async {
+      final b = BannerItem.fromJson({
+        'id': 'b1',
+        'title': 'X',
+        'formattedAddress': 'Quito, Ecuador',
+      });
+      await tester.pumpWidget(_wrap(BannerTile(
+        banner: b,
+        bannerService: mockService(),
+        listTypes: {},
+      )));
+      expect(find.textContaining('Quito, Ecuador'), findsOneWidget);
+    });
+
+    testWidgets('shows author when subtitleParts is empty and signed in',
+        (tester) async {
+      final b = BannerItem.fromJson({
+        'id': 'b1',
+        'title': 'X',
+        'missions': {
+          '0': {
+            'id': 'm1',
+            'title': 'M1',
+            'author': {'name': 'HeroAgent', 'faction': 'ENLIGHTENED'},
+          },
+        },
+      });
+      await tester.pumpWidget(_wrap(BannerTile(
+        banner: b,
+        bannerService: mockService(),
+        listTypes: {},
+        isSignedIn: true,
+      )));
+      expect(find.textContaining('HeroAgent'), findsOneWidget);
+    });
+
+    testWidgets('shows warning when subtitleParts is empty', (tester) async {
+      final b = BannerItem.fromJson({
+        'id': 'b1',
+        'title': 'X',
+        'warning': 'Danger!',
+      });
+      await tester.pumpWidget(_wrap(BannerTile(
+        banner: b,
+        bannerService: mockService(),
+        listTypes: {},
+      )));
+      expect(find.textContaining('Danger!'), findsOneWidget);
+    });
   });
 }

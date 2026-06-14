@@ -281,5 +281,38 @@ void main() {
       expect(captured?.queryParameters['listTypes'], 'done');
       expect(captured?.queryParametersAll['attributes'], contains('missions'));
     });
+
+    test('throws generic exception on non-200 non-401 status', () async {
+      final service = BannerService(
+        client: MockClient((_) async => http.Response('', 500)),
+      );
+
+      await expectLater(
+        () => service.fetchByListType(listType: 'todo', accessToken: 'tok'),
+        throwsException,
+      );
+    });
+  });
+
+  group('BannerService.setListType — error paths', () {
+    test('throws generic exception on non-200/204 non-401 status', () async {
+      final service = BannerService(
+        client: MockClient((_) async => http.Response('', 500)),
+      );
+
+      await expectLater(
+        () => service.setListType('b1', 'todo', 'tok'),
+        throwsException,
+      );
+    });
+  });
+
+  group('SessionExpiredException', () {
+    test('toString returns readable message', () {
+      expect(
+        SessionExpiredException().toString(),
+        'Session expired — please sign in again.',
+      );
+    });
   });
 }

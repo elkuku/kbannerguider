@@ -444,6 +444,36 @@ void main() {
       });
     });
 
+    // ── _mergeListTypes ────────────────────────────────────────────────────────
+
+    group('_mergeListTypes', () {
+      testWidgets(
+          'list type from server appears in FilterBar after signed-in refresh',
+          (tester) async {
+        // Banner returned by nearby includes a listType from the server.
+        const nearbyWithType = '''[
+          {"id":"b1","title":"Banner Alpha","numberOfMissions":6,
+           "listType":"todo","startLatitude":-0.230,"startLongitude":-78.525}
+        ]''';
+
+        await tester.pumpWidget(_buildPage(
+          bannerSvc: _bannerService(nearbyBody: nearbyWithType),
+          auth: _signedInAuth(),
+        ));
+        // Let _checkAuth complete → _isSignedIn = true.
+        await tester.pumpAndSettle();
+
+        // Tap refresh — now _fetchBanners runs with _isSignedIn = true
+        // → token is non-null → _mergeListTypes is called with b1's listType.
+        await tester.tap(find.byIcon(Icons.refresh));
+        await tester.pumpAndSettle();
+
+        // FilterBar is visible (signed in) and the To-do chip shows count 1.
+        expect(find.byType(FilterBar), findsOneWidget);
+        expect(find.textContaining('To-do  1'), findsOneWidget);
+      });
+    });
+
     // ── Refresh button ─────────────────────────────────────────────────────────
 
     group('Refresh button', () {

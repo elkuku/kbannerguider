@@ -495,6 +495,137 @@ void main() {
       });
     });
 
+    // ── _setListType ─────────────────────────────────────────────────────────
+
+    group('_setListType', () {
+      testWidgets('changing list type posts to the API', (tester) async {
+        var postCalled = false;
+        final svc = BannerService(
+          client: MockClient((request) async {
+            if (request.method == 'POST') postCalled = true;
+            return http.Response('', 200);
+          }),
+        );
+        await tester.pumpWidget(_buildPage(
+          _banner(id: 'banner-1'),
+          getToken: () async => 'fake-token',
+          service: svc,
+        ));
+        await _settle(tester);
+
+        await tester.tap(find.text('Done'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(postCalled, isTrue);
+      });
+
+      testWidgets('selecting the same type again skips the API call',
+          (tester) async {
+        var postCount = 0;
+        final svc = BannerService(
+          client: MockClient((request) async {
+            if (request.method == 'POST') postCount++;
+            return http.Response('', 200);
+          }),
+        );
+        await tester.pumpWidget(_buildPage(
+          _banner(id: 'banner-1'),
+          listTypes: {'banner-1': 'done'},
+          getToken: () async => 'fake-token',
+          service: svc,
+        ));
+        await _settle(tester);
+
+        await tester.tap(find.text('Done')); // same as current
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(postCount, isZero);
+      });
+
+      testWidgets('selecting None removes banner from returned listTypes',
+          (tester) async {
+        Map<String, String>? returned;
+
+        await tester.pumpWidget(MaterialApp(
+          home: Builder(builder: (ctx) {
+            return TextButton(
+              onPressed: () async {
+                returned = await Navigator.push<Map<String, String>>(
+                  ctx,
+                  MaterialPageRoute(
+                    builder: (_) => BannerDetailPage(
+                      banner: _banner(id: 'banner-1'),
+                      bannerService: _failingService(),
+                      listTypes: {'banner-1': 'todo'},
+                      getToken: () async => null, // no API call
+                    ),
+                  ),
+                );
+              },
+              child: const Text('Open'),
+            );
+          }),
+        ));
+
+        await tester.tap(find.text('Open'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        await tester.tap(find.text('None'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        await tester.tap(find.byType(BackButton));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+
+        expect(returned, isNotNull);
+        expect(returned!.containsKey('banner-1'), isFalse);
+      });
+    });
+
+    // ── Event and offline dates ───────────────────────────────────────────────
+
+    group('Event and offline dates', () {
+      testWidgets('shows event date range when both dates are set',
+          (tester) async {
+        final b = BannerItem.fromJson({
+          'id': 'ev1',
+          'title': 'Event Banner',
+          'eventStartDate': '2026-01-01',
+          'eventEndDate': '2026-01-07',
+        });
+        await tester.pumpWidget(_buildPage(b));
+        await _settle(tester);
+        expect(find.textContaining('2026-01-01'), findsOneWidget);
+        expect(find.textContaining('2026-01-07'), findsOneWidget);
+      });
+
+      testWidgets('shows only start date when no end date', (tester) async {
+        final b = BannerItem.fromJson({
+          'id': 'ev2',
+          'title': 'Event Banner',
+          'eventStartDate': '2026-06-15',
+        });
+        await tester.pumpWidget(_buildPage(b));
+        await _settle(tester);
+        expect(find.textContaining('2026-06-15'), findsOneWidget);
+      });
+
+      testWidgets('shows planned offline date', (tester) async {
+        final b = BannerItem.fromJson({
+          'id': 'off1',
+          'title': 'Offline Banner',
+          'plannedOfflineDate': '2026-12-31',
+        });
+        await tester.pumpWidget(_buildPage(b));
+        await _settle(tester);
+        expect(find.textContaining('2026-12-31'), findsOneWidget);
+      });
+    });
+
     // ── Navigation ──────────────────────────────────────────────────────────
 
     group('Navigation', () {

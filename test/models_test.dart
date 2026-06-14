@@ -184,6 +184,19 @@ void main() {
       expect(mission.pictureUrl, 'https://api.bannergress.com/missions/abc123/picture');
     });
 
+    test('pictureUrl resolves relative picture path', () {
+      final mission = MissionItem.fromJson({
+        'id': 'abc',
+        'title': 'T',
+        'picture': 'missions/pictures/xyz',
+        'steps': [],
+      });
+      expect(
+        mission.pictureUrl,
+        'https://api.bannergress.com/missions/pictures/xyz',
+      );
+    });
+
     test('ingressUrl contains mission id', () {
       final mission = MissionItem.fromJson({'id': 'mymissionid', 'title': 'T', 'steps': []});
       expect(mission.ingressUrl, contains('mymissionid'));
