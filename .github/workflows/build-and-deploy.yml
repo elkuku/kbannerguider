@@ -32,6 +32,18 @@ jobs:
 
       - run: flutter pub get
 
+      - name: Run tests with coverage
+        run: flutter test --coverage
+
+      - name: Generate HTML coverage report
+        run: |
+          sudo apt-get install -y lcov
+          genhtml coverage/lcov.info \
+            --output-directory coverage/html \
+            --title "kBannerGuider coverage" \
+            --show-details \
+            --legend
+
       - name: Set up signing
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -48,7 +60,7 @@ jobs:
       - name: Build APK
         run: flutter build apk --dart-define=APP_VERSION="${{ steps.version.outputs.VERSION }}"
 
-      - name: Prepare download page
+      - name: Prepare pages
         env:
           VERSION: ${{ steps.version.outputs.VERSION }}
           SHA: ${{ github.sha }}
@@ -57,6 +69,11 @@ jobs:
           mkdir -p pages
           APK_NAME="kbannerguider-${VERSION}.apk"
           cp build/app/outputs/flutter-apk/app-release.apk "pages/${APK_NAME}"
+          cp -r coverage/html pages/coverage
+
+          LINE_RATE=$(lcov --summary coverage/lcov.info 2>&1 \
+            | grep 'lines' | grep -oP '\d+\.\d+(?=%)' | head -1)
+          COVERAGE="${LINE_RATE:-0}%"
 
           cat > pages/index.html << HTMLEOF
           <!DOCTYPE html>
@@ -69,14 +86,18 @@ jobs:
               body { font-family: system-ui, sans-serif; max-width: 600px; margin: 4rem auto; padding: 0 1.5rem; background: #111; color: #e0e0e0; }
               h1 { font-size: 1.6rem; margin-bottom: 0.25rem; }
               .subtitle { color: #888; font-size: 0.9rem; margin-bottom: 2.5rem; }
-              .card { background: #1e1e1e; border: 1px solid #333; border-radius: 8px; padding: 1.5rem 2rem; }
+              .card { background: #1e1e1e; border: 1px solid #333; border-radius: 8px; padding: 1.5rem 2rem; margin-bottom: 1.5rem; }
               .version { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem; }
               .meta { font-size: 0.8rem; color: #888; margin-bottom: 1.5rem; word-break: break-all; }
               .meta a { color: #7aafff; }
               .btn { display: inline-block; background: #2563eb; color: #fff; text-decoration: none;
                      padding: 0.75rem 1.5rem; border-radius: 6px; font-weight: 600; font-size: 1rem; }
               .btn:hover { background: #1d4ed8; }
+              .btn-secondary { background: #374151; }
+              .btn-secondary:hover { background: #4b5563; }
               .note { font-size: 0.8rem; color: #666; margin-top: 1rem; }
+              .coverage-pct { font-size: 2rem; font-weight: 700; color: #4ade80; }
+              .coverage-label { font-size: 0.8rem; color: #888; margin-bottom: 1rem; }
             </style>
           </head>
           <body>
@@ -89,6 +110,11 @@ jobs:
               </div>
               <a class="btn" href="${APK_NAME}" download>Download APK</a>
               <p class="note">Enable <em>Install from unknown sources</em> in Android settings before installing.</p>
+            </div>
+            <div class="card">
+              <div class="coverage-pct">${COVERAGE}</div>
+              <div class="coverage-label">line coverage</div>
+              <a class="btn btn-secondary" href="coverage/index.html">View Coverage Report</a>
             </div>
           </body>
           </html>
