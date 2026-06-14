@@ -1,0 +1,190 @@
+[
+  {
+    "formattedAddress": "Quito, Ecuador",
+    "id": "parque-santa-ana-6476",
+    "lengthMeters": 9501,
+    "missions": {
+      "0": {
+        "author": {
+          "faction": "enlightened",
+          "name": "GreenAgent42"
+        },
+        "averageDurationMilliseconds": 438103,
+        "description": "Recorre el Parque Ecológico Santa Ana y sus alrededores",
+        "id": "3d06acb8975a427ab3fb358dea52fda5.1c",
+        "latestUpdateStatus": "2025-10-11T17:59:15.603970Z",
+        "lengthMeters": 181,
+        "picture": "https://lh3.googleusercontent.com/algIYXaBoUVyVSgEAmq5TBLl39bStKplRLs1D97SPGnBdDBAv-ECRQCicCaHcvUll4v7kJIIo3y2RrPH-V8g",
+        "status": "published",
+        "steps": [
+          {
+            "objective": "hack",
+            "poi": {
+              "id": "ae1c2371daa340ccb8682986c9507e2c.16",
+              "latitude": -0.241489,
+              "longitude": -78.519962,
+              "picture": "https://lh3.googleusercontent.com/MR66tfmvTE5Rd42e588k8rfEZFdzYfHvmi9qqCuNwpe3bgPlwhez8WtUoEBIum4heE_Jjl9DRAtdLgstf-uUG8qQV1_phv3_RiwNfaPtSs37",
+              "title": "Entrada Principal Parque Santa Ana",
+              "type": "portal"
+            }
+          },
+          {
+            "objective": "hack",
+            "poi": {
+              "id": "68cd03e13c7a45fbb7f529890aecb682.16",
+              "latitude": -0.241357,
+              "longitude": -78.519748,
+              "picture": "https://lh3.googleusercontent.com/Ecnm9tfeEUjoNOXFjLvlji57gkSJXnpY1JhM-o_M-jwAFoamIkH7q4E9TN6z5lFJtRG027_bVAwvI5PD8-oJ87onZmrVhA2wLbgo2vh8NOl2",
+              "title": "Área De Gimnasia",
+              "type": "portal"
+            }
+          }
+        ],
+        "title": "PARQUE SANTA ANA 1/18",
+        "type": "anyOrder"
+      },
+      "1": {
+        "author": {
+          "faction": "enlightened",
+          "name": "GreenAgent42"
+        },
+        "averageDurationMilliseconds": 271016,
+        "description": "Recorre el Parque Ecológico Santa Ana y sus alrededores",
+        "id": "0bad84139d8045ff88bc6049dd7ae33b.1c",
+        "latestUpdateStatus": "2025-12-07T08:44:23.043027Z",
+        "lengthMeters": 141,
+        "picture": "https://lh3.googleusercontent.com/TFYodSGPvtlbWevbNPffMVod8w0NI6eZ7i2JBW_dPFZ3ZRdmjCedCmZV5lnHx2OiPwoxPqSFsR93KRNQoxEd",
+        "status": "published",
+        "steps": [
+          {
+            "objective": "hack",
+            "poi": {
+              "id": "f4bf3161982c42b2b138e3fa4c1000e0.16",
+              "latitude": -0.240962,
+              "longitude": -78.520271,
+              "picture": "https://lh3.googleusercontent.com/uuCuIJmX-Ct18r94wY72DoO4gse2olt0nOGC-f89z2gQRWxYzQk2Hs8zHZChoxySg3tj0SIvRD9a2UJYomGczLsfmFsNVS6k6PCP769dztyP",
+              "title": "Maquinas De Ejercicios",
+              "type": "portal"
+            }
+          },
+          {
+            "objective": "hack",
+            "poi": {
+              "id": "1755c2e374784bec8126944670ec98c7.16",
+              "latitude": -0.240786,
+              "longitude": -78.52055,
+              "picture": "https://lh3.googleusercontent.com/_KplejwD0FyTT3c6XCmlzaehPRVmZCfkscCmGgAIKsFotnuEuJ2lYoHa9jtlCCY1YBI6YrLlyo6vAiSeOoc5JSMMoPvM19J74ih7owaEGzV9",
+              "title": "Mural Abstracto",
+              "type": "portal"
+            }
+          }
+        ],
+        "title": "PARQUE SANTA ANA 2/18",
+        "type": "anyOrder"
+      }
+    },
+    "numberOfDisabledMissions": 0,
+    "numberOfMissions": 18,
+    "numberOfSubmittedMissions": 0,
+    "picture": "/bnrs/pictures/db77f33065dbe755ea8c22b3ac739549",
+    "startLatitude": -0.241489,
+    "startLongitude": -78.519962,
+    "startPlaceId": "quito-ad01",
+    "title": "PARQUE SANTA ANA",
+    "width": 6
+  },
+  {
+    "formattedAddress": "Quito, Ecuador",
+    "id": "ruta-chokal-vista-occidental-2934",
+    "lengthMeters": 5911,
+    "missions": {
+      "0": {
+        "author": {
+          "faction": "enlightened",
+          "name": "choro966"
+        },
+        "averageDurationMilliseconds": 269727,
+        "description": "Recorre el Centro Histórico de Quito y descubre rincones de arte y deporte. Maravillate con el arte urbano y la diversidad arquitectónica de la Luz de América.",
+        "id": "43f232f75f944d51b61d5f360d527c9a.1c",
+        "latestUpdateStatus": "2024-12-15T13:10:27.822342Z",
+        "lengthMeters": 272,
+        "picture": "https://lh3.googleusercontent.com/Q05adxglMMVsX3vh9vb12rwe9XisTwiDlWo1JrgGWAy4hq8DMRDcBiQeSDUuGbwJfxqM-z_JxnOAN051g_zX",
+        "status": "published",
+        "steps": [
+          {
+            "objective": "hack",
+            "poi": {
+              "id": "7ee8ac659efd4a53820eca8543a599e0.16",
+              "latitude": -0.217675,
+              "longitude": -78.514956,
+              "picture": "https://lh3.googleusercontent.com/hUdJks8S6EE67KfiBYe8Eq_PSNE_M3pqY8SLxy15uQyqhmRunhXVxW48SwCasGqkK3vgXoXRZahrbKIA-VBDCkcVQE8",
+              "title": "Placa Homenaje Jaime Roldos",
+              "type": "portal"
+            }
+          },
+          {
+            "objective": "hack",
+            "poi": {
+              "id": "2de755fcea254d2a903958f965db50ca.16",
+              "latitude": -0.217546,
+              "longitude": -78.514752,
+              "picture": "https://lh3.googleusercontent.com/F25CkShMbxXu4quK5EZbBQZzGmTJemds5OM-3UAnfc4tkC1e-qR2U7C1BP5ygWPXW8BTk54rxdjbW5dpsfxD4GUoAg",
+              "title": "Cruz Verde",
+              "type": "portal"
+            }
+          }
+        ],
+        "title": "Ruta Chokal Vista Occidental 01/12",
+        "type": "sequential"
+      },
+      "1": {
+        "author": {
+          "faction": "enlightened",
+          "name": "choro966"
+        },
+        "averageDurationMilliseconds": 232273,
+        "description": "En este trayecto te encontrarás con museos, bibliotecas e institutos de arte. Antes de la colonización española, en esta calle se encontraba una muralla que protegía los centros ceremoniales.",
+        "id": "03f5e92e631c4734af5a9ec15e29c169.1c",
+        "latestUpdateStatus": "2025-06-10T13:00:55.168185Z",
+        "lengthMeters": 237,
+        "picture": "https://lh3.googleusercontent.com/P4jXMLGQqBgYSHfcC906BqsypDD3a3L2S5pN892kbphqZ7_-CoLSd6nnSomJvgRRpDskqR2uhKW99VucWRMK",
+        "status": "published",
+        "steps": [
+          {
+            "objective": "hack",
+            "poi": {
+              "id": "9ca9a943f137452f96d4f636d51f0884.16",
+              "latitude": -0.218399,
+              "longitude": -78.513758,
+              "picture": "https://lh3.googleusercontent.com/NtSKVquAa00RQ2S1_uRmlKiiiWo-iZHH5dZNk934pyo20wgStg8DgQByPPlPyG5V9d3Wu_r8rNM6oqO3fUu8jKpME1eo66VusMaaNTloMScjPg",
+              "title": "La Merced Church",
+              "type": "portal"
+            }
+          },
+          {
+            "objective": "hack",
+            "poi": {
+              "id": "bd9662df62744a2eb9c4353f94e73e5b.16",
+              "latitude": -0.218625,
+              "longitude": -78.513979,
+              "picture": "https://lh3.googleusercontent.com/SKJvngKx7NQYZmKiejmhJaA9GiQ5_AMhJ91otCaXceWe9VgrEPI6RkUzDJrf5a3K_Fnwwwzj0xv77HsLgpabsG8JHDVOcLcu_EOu6XdAUGwH",
+              "title": "Centro Comercial Granada",
+              "type": "portal"
+            }
+          }
+        ],
+        "title": "Ruta Chokal Vista Occidental 02/12",
+        "type": "sequential"
+      }
+    },
+    "numberOfDisabledMissions": 0,
+    "numberOfMissions": 12,
+    "numberOfSubmittedMissions": 0,
+    "picture": "/bnrs/pictures/21b2cec57d3aaad9ddbe5869f558d378",
+    "startLatitude": -0.217675,
+    "startLongitude": -78.514956,
+    "startPlaceId": "quito-ad01",
+    "title": "Ruta Chokal Vista Occidental",
+    "width": 6
+  }
+]

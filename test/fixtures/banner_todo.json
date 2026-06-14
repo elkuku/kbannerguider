@@ -1,0 +1,91 @@
+[
+  {
+    "formattedAddress": "Guayaquil, Ecuador",
+    "id": "un-atardecer-con-la-perla-df54",
+    "lengthMeters": 10004,
+    "listType": "todo",
+    "missions": {
+      "0": {
+        "author": {
+          "faction": "resistance",
+          "name": "BlueAgent99"
+        },
+        "averageDurationMilliseconds": 0,
+        "description": "Completa un lindo paseo por Guayaquil en sus sitios turísticos mas populares para completar un lindo mosaico del atractivo turístico: La Perla",
+        "id": "a626fa428b0444daa570cf3eaddf88b5.1c",
+        "latestUpdateStatus": "2022-09-01T22:54:40.148563Z",
+        "lengthMeters": 616,
+        "picture": "https://lh3.googleusercontent.com/fE7UaghK78UNv5i8xyzTEGg0-eUIVpNWbMXiwz7E9Um3q6HIzbMWuiBixRc6xf_ME8D1lmxCbvCGPUghhywob201yPzTTgGVtA",
+        "status": "published",
+        "steps": [
+          {
+            "objective": "hack",
+            "poi": {
+              "id": "9126b51cb4044d068451dc6d90591a20.16",
+              "latitude": -2.180535,
+              "longitude": -79.889271,
+              "title": "Tucan De Mi Tierra",
+              "type": "portal"
+            }
+          }
+        ],
+        "title": "Un atardecer con la Perla 1/36",
+        "type": "sequential"
+      }
+    },
+    "numberOfDisabledMissions": 0,
+    "numberOfMissions": 36,
+    "numberOfSubmittedMissions": 0,
+    "picture": "/bnrs/pictures/01e7182e17381def60c07f2eadf71f15",
+    "startLatitude": -2.180535,
+    "startLongitude": -79.889271,
+    "startPlaceId": "guayaquil-a0a8",
+    "title": "Un atardecer con la Perla",
+    "width": 6
+  },
+  {
+    "formattedAddress": "35216 Biedenkopf, Germany",
+    "id": "biedenkopf-ac93",
+    "lengthMeters": 8002,
+    "listType": "todo",
+    "missions": {
+      "0": {
+        "author": {
+          "faction": "enlightened",
+          "name": "gijo"
+        },
+        "averageDurationMilliseconds": 1214442,
+        "description": "Erkunde die Stadt Biedenkopf, entdecke die Geschichte deren Geschichte und erhalte ein Banner der Stadt.\nExplore Biedenkopf, learn about its history, culture and nature, and get a banner of the city.",
+        "id": "2767f8eb4eb6474da53a000263e41fe7.1c",
+        "latestUpdateStatus": "2025-03-21T00:40:01.845573Z",
+        "lengthMeters": 580,
+        "picture": "https://lh3.googleusercontent.com/68qlFPv9MRbodP9_HM_eQlLLr9ThzJdHc8AL3Z9bMTg7TAIMyawfTW12EZLqu23yq3xFem6VdrGAgA_cgGNSCTGGfrss9mPj2sQ",
+        "status": "published",
+        "steps": [
+          {
+            "objective": "hack",
+            "poi": {
+              "id": "1f1c35893faf4141bc050917655e7b8b.16",
+              "latitude": 50.909437,
+              "longitude": 8.529977,
+              "picture": "https://lh3.googleusercontent.com/_tTZJVXjEo3PTxg6gjCuc94EVzJXvLvjJ3oBSB2n12fNp7uRb5ZAGPPtibfz2RVhkssNFRQTlTi5ieLlVe6ezoOlGXVP",
+              "title": "Bahnhof Biedenkopf",
+              "type": "portal"
+            }
+          }
+        ],
+        "title": "Biedenkopf 1/18",
+        "type": "sequential"
+      }
+    },
+    "numberOfDisabledMissions": 0,
+    "numberOfMissions": 18,
+    "numberOfSubmittedMissions": 0,
+    "picture": "/bnrs/pictures/f86429c87b01a301aebac9bcc747434e",
+    "startLatitude": 50.909437,
+    "startLongitude": 8.529977,
+    "startPlaceId": "biedenkopf-ee92",
+    "title": "Biedenkopf ",
+    "width": 6
+  }
+]
