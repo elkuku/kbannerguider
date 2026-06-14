@@ -127,10 +127,17 @@ class _BannerListPageState extends State<BannerListPage>
     if (auth == null) return;
     final loggedIn = await auth.isLoggedIn();
     if (!mounted) return;
-    setState(() => _isSignedIn = loggedIn);
-    if (loggedIn) {
-      final token = await _getToken();
-      if (token != null) unawaited(_syncListStates(token));
+    if (!loggedIn) {
+      setState(() => _isSignedIn = false);
+      return;
+    }
+    // getAccessToken() auto-refreshes if the stored token is expired.
+    // If both tokens are gone/invalid it returns null and logs the user out.
+    final token = await _getToken();
+    if (!mounted) return;
+    setState(() => _isSignedIn = token != null);
+    if (token != null) {
+      unawaited(_syncListStates(token));
       if (_tabController.index == 1) _fetchTodoBanners();
     }
   }

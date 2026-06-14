@@ -17,11 +17,44 @@ const _keyRefreshToken = 'bg_refresh_token';
 class AuthService {
   final _storage = const FlutterSecureStorage();
 
-  Future<String?> getAccessToken() => _storage.read(key: _keyAccessToken);
+  // Deduplicates concurrent refresh attempts that race at startup.
+  Future<String?>? _pendingRefresh;
+
+  /// Returns a valid access token, refreshing silently if the stored one is
+  /// expired or close to expiry. Returns null when not logged in or refresh fails.
+  Future<String?> getAccessToken() async {
+    final token = await _storage.read(key: _keyAccessToken);
+    if (token == null || token.isEmpty) return null;
+    if (!_isTokenExpiredOrSoon(token)) return token;
+
+    _pendingRefresh ??= refreshIfNeeded()
+        .whenComplete(() => _pendingRefresh = null);
+    return _pendingRefresh;
+  }
 
   Future<bool> isLoggedIn() async {
-    final token = await getAccessToken();
-    return token != null && token.isNotEmpty;
+    final refresh = await _storage.read(key: _keyRefreshToken);
+    return refresh != null && refresh.isNotEmpty;
+  }
+
+  /// Decodes the JWT exp claim and returns true when the token expires within
+  /// 60 seconds (giving the refresh call time to complete before APIs reject it).
+  bool _isTokenExpiredOrSoon(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return true;
+      var payload = parts[1];
+      final padding = (4 - payload.length % 4) % 4;
+      payload += '=' * padding;
+      final decoded =
+          jsonDecode(utf8.decode(base64Url.decode(payload))) as Map;
+      final exp = decoded['exp'] as int?;
+      if (exp == null) return true;
+      final expiry = DateTime.fromMillisecondsSinceEpoch(exp * 1000);
+      return DateTime.now().isAfter(expiry.subtract(const Duration(seconds: 60)));
+    } catch (_) {
+      return true;
+    }
   }
 
   Future<void> login(BuildContext context) async {
