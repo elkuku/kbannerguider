@@ -847,16 +847,6 @@ class _FilterBar extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         child: Row(
           children: [
-            if (hiddenFilters.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: ActionChip(
-                  avatar: const Icon(Icons.visibility_outlined, size: 15),
-                  label:
-                      const Text('Show all', style: TextStyle(fontSize: 12)),
-                  onPressed: () => onChanged({}),
-                ),
-              ),
             ...options.map((opt) {
               final (key, label, icon, baseColor) = opt;
               final color = baseColor as Color;
