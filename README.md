@@ -1,3 +1,6 @@
+> [!CAUTION]
+> <img src="ai-generated.svg" height="22" align="absmiddle"> &nbsp; **AI Generated Code!**
+
 # kBannerGuider
 
 An Android app for [Ingress](https://ingress.com/) players. It connects to [Bannergress](https://bannergress.com/) to show mosaic banners near your location, lets you manage your To-do / Done / Skip lists, and guides you step-by-step through each mission with an integrated map.
