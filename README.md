@@ -1,5 +1,5 @@
 > [!CAUTION]
-> <img src="ai-generated.svg" height="22" align="absmiddle"> &nbsp; **AI Generated Code!**
+> <img src="ai-generated.svg" height="48" align="absmiddle"> &nbsp; **AI Generated Code!**
 
 # kBannerGuider
 
