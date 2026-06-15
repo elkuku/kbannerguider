@@ -26,9 +26,9 @@ Full documentation is in the [`docs/`](docs/) folder:
 | [Widget Reference](docs/widget-reference.md) | Every widget and its parameters |
 | [Data Models](docs/data-models.md) | Dart model classes and JSON mapping |
 
-## Test Coverage
+## Download
 
-Coverage report: **[elkuku.github.io/kbannerguider](https://elkuku.github.io/kbannerguider/)**
+Download and stats: **[elkuku.github.io/kbannerguider](https://elkuku.github.io/kbannerguider/)**
 
 ## Build
 
