@@ -50,6 +50,8 @@ class _BannerListPageState extends State<BannerListPage>
   double? _fetchLng;
   String? _error;
   Set<String> _hiddenFilters = {};
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
   final ScrollController _nearbyScrollController = ScrollController();
 
   // ── To-do tab state ────────────────────────────────────────────────────────
@@ -69,12 +71,19 @@ class _BannerListPageState extends State<BannerListPage>
   late final TabController _tabController;
 
   List<BannerItem> get _filteredBanners {
-    if (_hiddenFilters.isEmpty) return _banners;
-    return _banners.where((b) {
-      final type = _listTypes[b.id];
-      final key = (type == null || type == 'none') ? 'unsorted' : type;
-      return !_hiddenFilters.contains(key);
-    }).toList();
+    var results = _banners;
+    if (_hiddenFilters.isNotEmpty) {
+      results = results.where((b) {
+        final type = _listTypes[b.id];
+        final key = (type == null || type == 'none') ? 'unsorted' : type;
+        return !_hiddenFilters.contains(key);
+      }).toList();
+    }
+    if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      results = results.where((b) => b.title.toLowerCase().contains(q)).toList();
+    }
+    return results;
   }
 
   double? _distanceMeters(BannerItem banner) {
@@ -110,6 +119,7 @@ class _BannerListPageState extends State<BannerListPage>
 
   @override
   void dispose() {
+    _searchController.dispose();
     _nearbyScrollController.dispose();
     _todoScrollController.dispose();
     _tabController
@@ -553,6 +563,31 @@ class _BannerListPageState extends State<BannerListPage>
             authError: _authError,
             onSignIn: _signIn,
           ),
+        if (_banners.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search banners…',
+                prefixIcon: const Icon(Icons.search, size: 20),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 20),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _searchQuery = '');
+                        },
+                      )
+                    : null,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(24)),
+              ),
+              onChanged: (v) => setState(() => _searchQuery = v),
+            ),
+          ),
         if (_isSignedIn && _banners.isNotEmpty)
           FilterBar(
             hiddenFilters: _hiddenFilters,
@@ -598,7 +633,7 @@ class _BannerListPageState extends State<BannerListPage>
     }
     if (visible.isEmpty) {
       return const Center(
-          child: Text('No banners match the selected filter.'));
+          child: Text('No banners match the current search / filter.'));
     }
 
     return ListView.separated(
