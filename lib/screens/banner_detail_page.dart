@@ -1,9 +1,14 @@
+import 'dart:io';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../models/banner_item.dart';
 import '../services/banner_service.dart';
 import '../utils/format.dart';
+import '../utils/gpx.dart';
 import '../widgets/banner_map.dart';
 import '../widgets/full_image_dialog.dart';
 import '../widgets/list_type_selector.dart';
@@ -76,6 +81,29 @@ class _BannerDetailPageState extends State<BannerDetailPage>
     final mission = _banner.missions[_currentMissionIndex];
     await launch(mission.ingressUrl);
     _setGuiderIndex(_currentMissionIndex + 1);
+  }
+
+  Future<void> _exportGpx() async {
+    final hasCoords = _banner.missions.any((m) =>
+        m.steps.any((s) => s.poi?.latitude != null && s.poi?.longitude != null));
+    if (!hasCoords) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No waypoint coordinates available.')),
+        );
+      }
+      return;
+    }
+    final gpx = generateGpx(_banner);
+    final dir = await getTemporaryDirectory();
+    final file = File('${dir.path}/${_banner.id}.gpx');
+    await file.writeAsString(gpx);
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile(file.path, mimeType: 'application/gpx+xml')],
+        subject: _banner.title,
+      ),
+    );
   }
 
   Future<void> _setListType(String type) async {
@@ -347,6 +375,37 @@ class _BannerDetailPageState extends State<BannerDetailPage>
                                 color: Theme.of(context)
                                     .colorScheme
                                     .primary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    InkWell(
+                      onTap: _loadingDetail ? null : _exportGpx,
+                      borderRadius: BorderRadius.circular(4),
+                      child: Padding(
+                        padding:
+                            const EdgeInsets.symmetric(vertical: 6),
+                        child: Row(
+                          children: [
+                            Icon(Icons.download_outlined,
+                                size: 20,
+                                color: _loadingDetail
+                                    ? Theme.of(context).disabledColor
+                                    : Theme.of(context)
+                                        .colorScheme
+                                        .primary),
+                            const SizedBox(width: 12),
+                            Text(
+                              'Export GPX',
+                              style: TextStyle(
+                                color: _loadingDetail
+                                    ? Theme.of(context).disabledColor
+                                    : Theme.of(context)
+                                        .colorScheme
+                                        .primary,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),

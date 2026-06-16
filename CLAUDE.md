@@ -2,7 +2,7 @@
 
 ## What this app does
 
-Flutter Android app for the Ingress game. It shows Bannergress banners nearby, lets you mark them as **To-do / Done / Skip**, and guides you step-by-step through each mission. List types are synced via the Bannergress API. No local persistence beyond theme preference.
+Flutter Android app for the Ingress game. It shows Bannergress banners nearby, lets you mark them as **To-do / Done / Skip**, guides you step-by-step through each mission, and can export a banner's waypoints as a GPX file. List types are synced via the Bannergress API. No local persistence beyond theme preference.
 
 ## Build & deploy
 
@@ -41,6 +41,7 @@ lib/
     location_picker_page.dart # flutter_map picker for custom search center
   utils/
     format.dart               # formatMeters(int) → "X m" / "X.X km"
+    gpx.dart                  # generateGpx(BannerItem) → GPX 1.1 XML string
   widgets/
     full_image_dialog.dart    # Full-screen image overlay (Hero animation source)
 ```
@@ -65,6 +66,12 @@ lib/
 - Current mission index is in-memory state only (`_currentMissionIndex` in `BannerDetailPage`)
 - Resets to mission 1 each time the detail page is opened
 - The map tab shows a numbered marker for the current mission
+
+### GPX export
+- "Export GPX" tap target lives in the Missions tab info section of `BannerDetailPage`
+- `_exportGpx()` guards on missing coordinates; shows a SnackBar and aborts if no POI has lat/lng
+- `generateGpx()` in `utils/gpx.dart` produces GPX 1.1 with: one `<wpt>` per POI (with mission number + objective label), and one `<trk>/<trkseg>` per mission (route line through its waypoints)
+- File is written to `getTemporaryDirectory()` as `{bannerId}.gpx`, then shared via `share_plus` (system sheet — user can open in any GPX-capable app or save to files)
 
 ## Bannergress API
 
@@ -97,4 +104,3 @@ Mission and banner pictures use a relative path stored in `picture`; `pictureUrl
 | File | Notes |
 |---|---|
 | `api.md` | Bannergress API response shape reference |
-| `plan.md` | Historic design notes / feature backlog |
