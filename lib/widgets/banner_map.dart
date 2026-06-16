@@ -43,6 +43,7 @@ class _BannerMapState extends State<BannerMap> {
   final _mapController = MapController();
   bool _showLocation = false;
   bool _loadingLocation = false;
+  bool _refreshing = false;
   LatLng? _currentLocation;
   Timer? _locationTimer;
   bool _userInteracting = false;
@@ -104,6 +105,8 @@ class _BannerMapState extends State<BannerMap> {
   }
 
   Future<void> _refreshLocation({bool moveCamera = false}) async {
+    if (_refreshing) return;
+    _refreshing = true;
     try {
       final pos = await Geolocator.getCurrentPosition();
       if (!mounted) return;
@@ -124,6 +127,8 @@ class _BannerMapState extends State<BannerMap> {
       }
       _locationTimer?.cancel();
       _locationTimer = null;
+    } finally {
+      _refreshing = false;
     }
   }
 
