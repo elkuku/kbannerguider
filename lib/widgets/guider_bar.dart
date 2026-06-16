@@ -39,15 +39,21 @@ class _GuiderBarState extends State<GuiderBar> {
   Future<void> _handleLaunch() async {
     if (_launching || widget.onLaunch == null) return;
     setState(() => _launching = true);
-    await widget.onLaunch!();
-    if (mounted) setState(() => _launching = false);
+    try {
+      await widget.onLaunch!();
+    } finally {
+      if (mounted) setState(() => _launching = false);
+    }
   }
 
   Future<void> _handleMarkDone() async {
     if (_launching || widget.onMarkDone == null) return;
     setState(() => _launching = true);
-    await widget.onMarkDone!();
-    if (mounted) setState(() => _launching = false);
+    try {
+      await widget.onMarkDone!();
+    } finally {
+      if (mounted) setState(() => _launching = false);
+    }
   }
 
   @override
