@@ -1,26 +1,41 @@
-# kBannerGuider — Documentation
+---
+layout: home
 
-kBannerGuider is an Android app for the [Ingress](https://ingress.com/) augmented reality game. It integrates with [Bannergress](https://bannergress.com/) to let you browse banners near your location, manage your to-do list, and navigate step-by-step through each mission.
+hero:
+  name: kBannerGuider
+  text: Ingress Banner Navigator
+  tagline: Browse Bannergress banners near you, manage your lists, and navigate step-by-step through each mission.
+  image:
+    src: /logo.svg
+    alt: kBannerGuider logo
+  actions:
+    - theme: brand
+      text: Download APK
+      link: /download
+    - theme: alt
+      text: User Guide
+      link: /user-guide
+    - theme: alt
+      text: GitHub
+      link: https://github.com/elkuku/kbannerguider
 
-## Contents
-
-| Document | Description |
-|---|---|
-| [User Guide](user-guide.md) | How to use the app — screens, features, workflows |
-| [Architecture](architecture.md) | Code structure, data flows, design decisions |
-| [API Reference](api-reference.md) | Bannergress HTTP API used by the app |
-| [Authentication](authentication.md) | Keycloak PKCE sign-in flow, token lifecycle |
-| [Development](development.md) | Build, test, deploy |
-| [Widget Reference](widget-reference.md) | Every widget and its parameters |
-| [Data Models](data-models.md) | Dart model classes and JSON mapping |
-
-## What it does
-
-- **Nearby banners** — fetches banners sorted by proximity to your GPS position (or a custom search center)
-- **To-do list** — shows your Bannergress bookmarked banners, sorted by distance
-- **List type management** — mark banners as To-do / Done / Skip directly from the app; changes sync to Bannergress instantly
-- **Mission detail** — shows all missions in a banner with waypoint steps, objectives, and lengths
-- **Map view** — renders all mission routes on an OpenStreetMap map with colored numbered markers
-- **Guider** — step-by-step mission navigator that opens each mission in the Ingress app and auto-advances the map
-- **Bannergress sign-in** — optional Keycloak PKCE authentication via in-app WebView; tokens persisted securely across sessions
-- **Theme** — dark / light mode toggle, preference persisted across restarts
+features:
+  - title: Nearby Banners
+    icon: 📍
+    details: Fetches banners sorted by proximity to your GPS position or a custom search center you set on the map.
+  - title: To-do List
+    icon: 🔖
+    details: Sign in to Bannergress to sync your bookmarked banners. Mark banners as To-do, Done, or Skip — changes sync instantly.
+  - title: Mission Guider
+    icon: 🧭
+    details: Step-by-step navigator that opens each mission in the Ingress app and auto-advances the map when you return.
+  - title: Interactive Map
+    icon: 🗺️
+    details: OpenStreetMap with color-coded mission routes, numbered start markers, a collapsible legend, and your live location.
+  - title: Filter Bar
+    icon: 🔍
+    details: Quickly hide Done or Skip banners in the Nearby list so only what's left in your area is visible.
+  - title: Dark & Light Theme
+    icon: 🌙
+    details: Toggle between dark and light mode from the app bar. Your preference is saved across restarts.
+---
