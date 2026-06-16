@@ -55,6 +55,9 @@ class _BannerListPageState extends State<BannerListPage>
   // ── To-do tab state ────────────────────────────────────────────────────────
   List<BannerItem> _todoBanners = [];
   bool _loadingTodo = false;
+  bool _loadingMoreTodo = false;
+  bool _todoHasMore = true;
+  final ScrollController _todoScrollController = ScrollController();
 
   // ── Shared state ───────────────────────────────────────────────────────────
   Position? _position;
@@ -100,6 +103,7 @@ class _BannerListPageState extends State<BannerListPage>
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(_onTabChanged);
     _nearbyScrollController.addListener(_onNearbyScroll);
+    _todoScrollController.addListener(_onTodoScroll);
     _fetchBanners();
     _checkAuth();
   }
@@ -107,6 +111,7 @@ class _BannerListPageState extends State<BannerListPage>
   @override
   void dispose() {
     _nearbyScrollController.dispose();
+    _todoScrollController.dispose();
     _tabController
       ..removeListener(_onTabChanged)
       ..dispose();
@@ -185,6 +190,16 @@ class _BannerListPageState extends State<BannerListPage>
         _hasMore &&
         !_loading) {
       _fetchMoreBanners();
+    }
+  }
+
+  void _onTodoScroll() {
+    if (_todoScrollController.position.pixels >=
+            _todoScrollController.position.maxScrollExtent - 300 &&
+        !_loadingMoreTodo &&
+        _todoHasMore &&
+        !_loadingTodo) {
+      _fetchMoreTodoBanners();
     }
   }
 
@@ -297,25 +312,45 @@ class _BannerListPageState extends State<BannerListPage>
 
   Future<void> _fetchTodoBanners() async {
     if (_loadingTodo || !_isSignedIn) return;
+    setState(() {
+      _todoBanners = [];
+      _todoHasMore = true;
+      _loadingMoreTodo = false;
+    });
     await _fetchTodosFromApi();
   }
 
-  Future<void> _fetchTodosFromApi() async {
+  Future<void> _fetchMoreTodoBanners() async {
+    if (_loadingMoreTodo || !_todoHasMore || !_isSignedIn) return;
+    setState(() => _loadingMoreTodo = true);
+    await _fetchTodosFromApi(offset: _todoBanners.length, append: true);
+  }
+
+  Future<void> _fetchTodosFromApi({int offset = 0, bool append = false}) async {
     final auth = widget._authService;
     if (auth == null) return;
-    setState(() => _loadingTodo = true);
+    if (!append) setState(() => _loadingTodo = true);
 
     try {
       String? token = await auth.getAccessToken();
       if (token == null) {
-        setState(() => _loadingTodo = false);
+        if (mounted) {
+          setState(() {
+            _loadingTodo = false;
+            _loadingMoreTodo = false;
+          });
+        }
         return;
       }
 
-      List<BannerItem> todos;
+      List<BannerItem> page;
       try {
-        todos = await widget._bannerService
-            .fetchByListType(listType: 'todo', accessToken: token);
+        page = await widget._bannerService.fetchByListType(
+          listType: 'todo',
+          accessToken: token,
+          offset: offset,
+          limit: BannerService.pageSize,
+        );
       } on SessionExpiredException {
         token = await auth.refreshIfNeeded();
         if (token == null) {
@@ -323,16 +358,23 @@ class _BannerListPageState extends State<BannerListPage>
             setState(() {
               _isSignedIn = false;
               _loadingTodo = false;
+              _loadingMoreTodo = false;
             });
           }
           return;
         }
-        todos = await widget._bannerService
-            .fetchByListType(listType: 'todo', accessToken: token);
+        page = await widget._bannerService.fetchByListType(
+          listType: 'todo',
+          accessToken: token,
+          offset: offset,
+          limit: BannerService.pageSize,
+        );
       }
 
+      final all = append ? [..._todoBanners, ...page] : page;
+
       if (_position != null) {
-        todos.sort((a, b) {
+        all.sort((a, b) {
           final da = _distanceMeters(a);
           final db = _distanceMeters(b);
           if (da == null && db == null) return 0;
@@ -344,12 +386,19 @@ class _BannerListPageState extends State<BannerListPage>
 
       if (mounted) {
         setState(() {
-          _todoBanners = todos;
+          _todoBanners = all;
+          _todoHasMore = page.length >= BannerService.pageSize;
           _loadingTodo = false;
+          _loadingMoreTodo = false;
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _loadingTodo = false);
+      if (mounted) {
+        setState(() {
+          _loadingTodo = false;
+          _loadingMoreTodo = false;
+        });
+      }
     }
   }
 
@@ -438,7 +487,7 @@ class _BannerListPageState extends State<BannerListPage>
                 Tab(
                   icon: const Icon(Icons.bookmark_outline),
                   text: 'To-do'
-                      '${_todoBanners.isNotEmpty ? ' (${_todoBanners.length})' : ''}',
+                      '${_todoBanners.isNotEmpty ? ' (${_todoBanners.length}${_todoHasMore ? '+' : ''})' : ''}',
                 ),
               ],
             ),
@@ -627,7 +676,8 @@ class _BannerListPageState extends State<BannerListPage>
     return RefreshIndicator(
       onRefresh: _fetchTodoBanners,
       child: ListView.separated(
-        itemCount: _todoBanners.length + (_loadingTodo ? 1 : 0),
+        controller: _todoScrollController,
+        itemCount: _todoBanners.length + (_loadingMoreTodo ? 1 : 0),
         separatorBuilder: (_, _) => const Divider(height: 1),
         itemBuilder: (_, i) {
           if (i == _todoBanners.length) {
