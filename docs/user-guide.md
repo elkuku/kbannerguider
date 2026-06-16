@@ -100,9 +100,10 @@ The Missions tab shows, from top to bottom:
 3. **Passphrase notice** (if applicable) — amber strip indicating one or more missions require a passphrase entry.
 4. **Title and description**
 5. **List Type Selector** (signed in only) — four buttons: None / To-do / Done / Skip. The active selection is highlighted. Tapping a button posts the change to Bannergress immediately.
-6. **Info rows** — Type, Missions count, Route length, Start location/coordinates, Author (with faction color), Event dates, Planned offline date.
+6. **Info rows** — Type, Missions count, Route length, Start location/coordinates (tap to open in a navigation app), Author (with faction color), Event dates, Planned offline date.
 7. **"View on Bannergress"** link — opens the banner's Bannergress page in an external browser.
-8. **Mission list** — each mission is an expandable tile.
+8. **"Export GPX"** — generates a GPX 1.1 file with a named waypoint for every POI and a track segment for each mission, then shares it via the system sheet. Opens in any GPX-capable app (OsmAnd, Maps.me, etc.) or saves to files. Disabled while mission data is still loading.
+9. **Mission list** — each mission is an expandable tile.
 
 #### Mission Tile
 

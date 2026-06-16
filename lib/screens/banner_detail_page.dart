@@ -298,20 +298,29 @@ class _BannerDetailPageState extends State<BannerDetailPage>
                         label: 'Route length',
                         value: formatMeters(_banner.lengthMeters!),
                       ),
-                    if (_banner.formattedAddress != null)
+                    if (_banner.startLatitude != null &&
+                        _banner.startLongitude != null)
+                      InfoRow(
+                        icon: Icons.location_on,
+                        label: _banner.formattedAddress != null
+                            ? 'Start location'
+                            : 'Start point',
+                        value: _banner.formattedAddress ??
+                            '${_banner.startLatitude!.toStringAsFixed(5)}, '
+                            '${_banner.startLongitude!.toStringAsFixed(5)}',
+                        onTap: () => launch(
+                          'geo:${_banner.startLatitude},'
+                          '${_banner.startLongitude}'
+                          '?q=${_banner.startLatitude},'
+                          '${_banner.startLongitude}'
+                          '(${Uri.encodeComponent(_banner.title)})',
+                        ),
+                      )
+                    else if (_banner.formattedAddress != null)
                       InfoRow(
                         icon: Icons.location_on,
                         label: 'Start location',
                         value: _banner.formattedAddress!,
-                      )
-                    else if (_banner.startLatitude != null &&
-                        _banner.startLongitude != null)
-                      InfoRow(
-                        icon: Icons.location_on,
-                        label: 'Start point',
-                        value:
-                            '${_banner.startLatitude!.toStringAsFixed(5)}, '
-                            '${_banner.startLongitude!.toStringAsFixed(5)}',
                       ),
                     if (_banner.authorAgent != null)
                       Padding(

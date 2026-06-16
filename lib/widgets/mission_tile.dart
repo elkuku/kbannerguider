@@ -189,15 +189,17 @@ class InfoRow extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.value,
+    this.onTap,
   });
 
   final IconData icon;
   final String label;
   final String value;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    final content = Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -207,8 +209,18 @@ class InfoRow extends StatelessWidget {
           Text('$label: ',
               style: const TextStyle(fontWeight: FontWeight.w600)),
           Expanded(child: Text(value)),
+          if (onTap != null)
+            Icon(Icons.open_in_new,
+                size: 14,
+                color: Theme.of(context).colorScheme.primary),
         ],
       ),
+    );
+    if (onTap == null) return content;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(4),
+      child: content,
     );
   }
 }
