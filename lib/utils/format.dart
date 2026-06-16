@@ -33,3 +33,13 @@ Color missionColor(int i) => missionColors[i % missionColors.length];
 
 Future<void> launch(String url) =>
     launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+
+// Mirrors OpenBanners toAbsoluteImageUrl: handles relative and absolute picture paths.
+String resolvePictureUrl(String? picture, String fallbackPath) {
+  const base = 'https://api.bannergress.com';
+  if (picture == null || picture.isEmpty) return '$base/$fallbackPath';
+  if (picture.startsWith('http://') || picture.startsWith('https://')) {
+    return picture;
+  }
+  return '$base/${picture.replaceAll(RegExp(r'^/+'), '')}';
+}

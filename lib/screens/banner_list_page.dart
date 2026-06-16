@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show mapEquals;
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
@@ -221,10 +222,7 @@ class _BannerListPageState extends State<BannerListPage>
     };
     if (serverTypes.isEmpty) return;
     final merged = Map<String, String>.of(_listTypes)..addAll(serverTypes);
-    if (merged.length == _listTypes.length &&
-        merged.entries.every((e) => _listTypes[e.key] == e.value)) {
-      return;
-    }
+    if (mapEquals(merged, _listTypes)) return;
     setState(() => _listTypes = merged);
   }
 

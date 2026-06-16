@@ -1,4 +1,5 @@
 import 'mission_item.dart';
+import '../utils/format.dart';
 
 class BannerItem {
   final String id;
@@ -85,17 +86,7 @@ class BannerItem {
         .toList();
   }
 
-  // Mirrors OpenBanners toAbsoluteImageUrl: handles relative and absolute picture values.
-  String get pictureUrl {
-    const base = 'https://api.bannergress.com';
-    if (picture == null || picture!.isEmpty) {
-      return '$base/bnrs/$id/picture';
-    }
-    if (picture!.startsWith('http://') || picture!.startsWith('https://')) {
-      return picture!;
-    }
-    return '$base/${picture!.replaceAll(RegExp(r'^/+'), '')}';
-  }
+  String get pictureUrl => resolvePictureUrl(picture, 'bnrs/$id/picture');
 
   String get bannerUrl => 'https://bannergress.com/banner/$id';
 

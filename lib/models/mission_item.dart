@@ -1,3 +1,5 @@
+import '../utils/format.dart';
+
 class AgentItem {
   const AgentItem({required this.name, required this.faction});
 
@@ -102,16 +104,7 @@ class MissionItem {
             [],
       );
 
-  String get pictureUrl {
-    const base = 'https://api.bannergress.com';
-    if (picture == null || picture!.isEmpty) {
-      return '$base/missions/$id/picture';
-    }
-    if (picture!.startsWith('http://') || picture!.startsWith('https://')) {
-      return picture!;
-    }
-    return '$base/${picture!.replaceAll(RegExp(r'^/+'), '')}';
-  }
+  String get pictureUrl => resolvePictureUrl(picture, 'missions/$id/picture');
 
   /// Deep link that opens the mission directly in the Ingress app (or Intel map).
   String get ingressUrl {
