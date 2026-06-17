@@ -568,17 +568,32 @@ void main() {
   // ── FilterBar ─────────────────────────────────────────────────────────────
 
   group('FilterBar', () {
-    testWidgets('shows all four filter chips', (tester) async {
+    testWidgets('shows all four filter chips when signed in', (tester) async {
       await tester.pumpWidget(_wrap(FilterBar(
         hiddenFilters: {},
         listTypes: {},
         banners: [],
         onChanged: (_) {},
+        isSignedIn: true,
+        minMissions: 0,
+        onMinMissionsChanged: (_) {},
       )));
-      expect(find.textContaining('To-do'), findsOneWidget);
-      expect(find.textContaining('Done'), findsOneWidget);
-      expect(find.textContaining('Skip'), findsOneWidget);
-      expect(find.textContaining('Unsorted'), findsOneWidget);
+      // chips show icon + count only; verify icons are present by checking chip count
+      expect(find.byType(FilterChip), findsNWidgets(4));
+    });
+
+    testWidgets('shows only missions chip when not signed in', (tester) async {
+      await tester.pumpWidget(_wrap(FilterBar(
+        hiddenFilters: {},
+        listTypes: {},
+        banners: [],
+        onChanged: (_) {},
+        isSignedIn: false,
+        minMissions: 0,
+        onMinMissionsChanged: (_) {},
+      )));
+      expect(find.textContaining('Any'), findsOneWidget);
+      expect(find.byType(FilterChip), findsNothing);
     });
 
     testWidgets('shows correct unsorted count', (tester) async {
@@ -593,9 +608,12 @@ void main() {
         listTypes: {'a': 'todo'},
         banners: banners,
         onChanged: (_) {},
+        isSignedIn: true,
+        minMissions: 0,
+        onMinMissionsChanged: (_) {},
       )));
-      expect(find.textContaining('Unsorted  2'), findsOneWidget);
-      expect(find.textContaining('To-do  1'), findsOneWidget);
+      expect(find.text('2'), findsOneWidget);
+      expect(find.text('1'), findsOneWidget);
     });
 
     testWidgets('calls onChanged when chip tapped', (tester) async {
@@ -605,8 +623,12 @@ void main() {
         listTypes: {},
         banners: [],
         onChanged: (h) => result = h,
+        isSignedIn: true,
+        minMissions: 0,
+        onMinMissionsChanged: (_) {},
       )));
-      await tester.tap(find.textContaining('To-do'));
+      // tap the first FilterChip (todo)
+      await tester.tap(find.byType(FilterChip).first);
       expect(result, contains('todo'));
     });
 
@@ -618,9 +640,26 @@ void main() {
         listTypes: {},
         banners: [],
         onChanged: (h) => result = h,
+        isSignedIn: true,
+        minMissions: 0,
+        onMinMissionsChanged: (_) {},
       )));
-      await tester.tap(find.textContaining('Done'));
+      // tap the second FilterChip (done)
+      await tester.tap(find.byType(FilterChip).at(1));
       expect(result, isNot(contains('done')));
+    });
+
+    testWidgets('shows min missions chip with active value', (tester) async {
+      await tester.pumpWidget(_wrap(FilterBar(
+        hiddenFilters: {},
+        listTypes: {},
+        banners: [],
+        onChanged: (_) {},
+        isSignedIn: false,
+        minMissions: 12,
+        onMinMissionsChanged: (_) {},
+      )));
+      expect(find.textContaining('≥ 12'), findsOneWidget);
     });
   });
 

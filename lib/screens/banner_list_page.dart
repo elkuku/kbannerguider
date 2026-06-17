@@ -50,6 +50,7 @@ class _BannerListPageState extends State<BannerListPage>
   double? _fetchLng;
   String? _error;
   Set<String> _hiddenFilters = {};
+  int _minMissions = 0;
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _nearbyScrollController = ScrollController();
@@ -78,6 +79,11 @@ class _BannerListPageState extends State<BannerListPage>
         final key = (type == null || type == 'none') ? 'unsorted' : type;
         return !_hiddenFilters.contains(key);
       }).toList();
+    }
+    if (_minMissions > 0) {
+      results = results
+          .where((b) => (b.numberOfMissions ?? 0) >= _minMissions)
+          .toList();
     }
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
@@ -189,6 +195,13 @@ class _BannerListPageState extends State<BannerListPage>
       _hiddenFilters = {};
     });
     _fetchBanners();
+  }
+
+  Future<void> _ensureMinVisible() async {
+    while (_filteredBanners.length < 25 && _hasMore && !_loading) {
+      await _fetchMoreBanners();
+      if (!mounted) return;
+    }
   }
 
   // ── Nearby fetching ────────────────────────────────────────────────────────
@@ -588,12 +601,18 @@ class _BannerListPageState extends State<BannerListPage>
               onChanged: (v) => setState(() => _searchQuery = v),
             ),
           ),
-        if (_isSignedIn && _banners.isNotEmpty)
+        if (_banners.isNotEmpty)
           FilterBar(
             hiddenFilters: _hiddenFilters,
             listTypes: _listTypes,
             banners: _banners,
             onChanged: (h) => setState(() => _hiddenFilters = h),
+            isSignedIn: _isSignedIn,
+            minMissions: _minMissions,
+            onMinMissionsChanged: (v) {
+              setState(() => _minMissions = v);
+              _ensureMinVisible();
+            },
           ),
         Expanded(child: _buildNearbyContent()),
       ],
