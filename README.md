@@ -1,4 +1,4 @@
-> [!CAUTION]
+                                                       > [!CAUTION]
 > <img src="ai-generated.svg" height="48" align="absmiddle"> &nbsp; <font color="#cc0000">**AI Generated Code!**</font>
 
 # kBannerGuider
@@ -15,28 +15,6 @@ An Android app for [Ingress](https://ingress.com/) players. It connects to [Bann
 - Step-by-step guider that opens each mission in the Ingress app
 - Dark / light theme toggle
 
-## Documentation
+## Documentation and Download
 
-Full documentation is in the [`docs/`](docs/) folder:
-
-| Document | Description |
-|---|---|
-| [User Guide](docs/user-guide.md) | Screens, features, and workflows with screenshots |
-| [Architecture](docs/architecture.md) | Code structure, data flows, design decisions |
-| [API Reference](docs/api-reference.md) | Bannergress HTTP API |
-| [Authentication](docs/authentication.md) | Keycloak PKCE sign-in flow |
-| [Development](docs/development.md) | Build, test, deploy |
-| [Widget Reference](docs/widget-reference.md) | Every widget and its parameters |
-| [Data Models](docs/data-models.md) | Dart model classes and JSON mapping |
-
-## Download
-
-Download and stats: **[elkuku.github.io/kbannerguider](https://elkuku.github.io/kbannerguider/)**
-
-## Build
-
-```bash
-./build.sh
-```
-
-Builds a release APK stamped with the current datetime and installs it on the connected device. See the [Development Guide](docs/development.md) for details.
+**[elkuku.github.io/kbannerguider](https://elkuku.github.io/kbannerguider/)**
